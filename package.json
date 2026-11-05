@@ -1,0 +1,19 @@
+{
+  "name": "latex-realtime-editor",
+  "version": "1.0.0",
+  "description": "Real-time collaborative LaTeX editor: Angular + Yjs frontend, Rust (Axum + Yrs + Tectonic) backend",
+  "scripts": {
+    "db:up": "docker compose up -d db",
+    "dev:backend": "cargo run --manifest-path backend/Cargo.toml",
+    "dev:frontend": "npm --prefix frontend start",
+    "test:backend": "cargo test --manifest-path backend/Cargo.toml",
+    "test:frontend": "npm --prefix frontend test -- --watch=false",
+    "test:e2e": "node e2e/smoke.mjs",
+    "build": "cargo build --release --manifest-path backend/Cargo.toml && npm --prefix frontend run build"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "typescript": "^5.5.3"
+  },
+  "private": true
+}
