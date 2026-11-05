@@ -1,0 +1,14 @@
+:host { display: contents; }
+dialog.settings { width: min(600px, calc(100vw - 24px)); max-width: none; }
+.box { box-sizing: border-box; padding: 24px 28px 20px; max-height: calc(100vh - 48px); overflow: auto; display: flex; flex-direction: column; gap: 6px; }
+.top { display: flex; align-items: flex-start; gap: 14px; .titles { flex: 1; min-width: 0; h2 { margin: 0; font: 700 28px var(--font-heading); } .lede { margin: 4px 0 0; } } }
+.x { background: none; border: 0; font-size: 20px; color: var(--ink-600); cursor: pointer; padding: 2px 6px; }
+.tabpanel { display: flex; flex-direction: column; gap: 10px; }
+.pair { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; @media (max-width: 520px) { grid-template-columns: 1fr; } }
+.static { margin: 0; font: 17px var(--font-body); b { font-family: var(--font-heading); } small { color: var(--ink-600); font-style: italic; } }
+.section-h.first { margin-top: 4px; }
+.hint { margin: 2px 0 0; font: italic 15px var(--font-body); color: var(--ink-600); }
+.sample { margin: 2px 0 0; padding: 10px 14px; background: var(--wood-900); color: var(--text-1); border-radius: 4px; overflow: auto; white-space: pre; }
+.foot { display: flex; align-items: center; gap: 10px; margin-top: 12px; .sp { flex: 1; } }
+
+.box .field input, .box .field select { box-sizing: border-box; width: 100%; }
