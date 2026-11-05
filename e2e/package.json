@@ -1,0 +1,7 @@
+{
+  "name": "quill-e2e",
+  "private": true,
+  "type": "module",
+  "description": "Browser smoke test for The Gilded Quill",
+  "devDependencies": { "puppeteer-core": "^24.0.0" }
+}
