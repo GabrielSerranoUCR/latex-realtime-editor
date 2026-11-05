@@ -1,0 +1,17 @@
+{
+  "name": "quill-mcp",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "MCP server that lets an AI assistant read, search, edit and compile the scrolls (LaTeX documents) of The Gilded Quill",
+  "bin": { "quill-mcp": "src/server.mjs" },
+  "scripts": {
+    "start": "node src/server.mjs",
+    "test": "node --test test/lib.test.mjs",
+    "test:e2e": "node test/e2e.mjs"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.32.2",
+    "zod": "^4.0.0"
+  }
+}

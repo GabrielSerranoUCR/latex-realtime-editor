@@ -1,0 +1,15 @@
+:host { display: block; position: relative; z-index: 40; }
+.bar { display: flex; align-items: stretch; gap: 2px; padding: 0 16px; height: 34px; background: rgb(var(--shade-rgb) / 0.35); border-bottom: 1px solid rgb(var(--brass7-rgb) / 0.6); }
+.slot { position: relative; display: flex; }
+.top { padding: 0 12px; background: none; border: 0; cursor: pointer; color: var(--text-1); font: 600 15px var(--font-body); border-radius: 4px 4px 0 0;
+  &:hover, &.open { background: rgb(var(--glow-rgb) / 0.16); color: var(--candle-400); }
+  &:focus-visible { outline: 2px solid var(--candle-400); outline-offset: -2px; } }
+.drop { position: absolute; top: 100%; left: 0; min-width: 270px; max-height: calc(100vh - 120px); overflow-y: auto; margin: 0; padding: 4px; list-style: none; background: rgb(var(--panel-rgb) / 0.99); border: 2px solid var(--brass-500); border-radius: 0 6px 6px 6px; box-shadow: 0 12px 24px rgb(0 0 0 / 0.55); }
+.sep { height: 1px; margin: 4px 6px; background: rgb(var(--brass7-rgb) / 0.6); }
+.item { display: flex; align-items: center; gap: 8px; width: 100%; padding: 6px 10px; background: none; border: 0; border-radius: 3px; cursor: pointer; text-align: left; color: var(--text-1); font: 600 16px var(--font-body);
+  .tick { width: 14px; flex: none; color: var(--candle-400); font-size: 14px; }
+  .lbl { flex: 1; white-space: nowrap; }
+  kbd { font: 400 12px var(--font-mono); color: var(--text-3); white-space: nowrap; }
+  em { font: italic 14px var(--font-body); color: var(--text-3); white-space: nowrap; }
+  &:hover:not(:disabled), &:focus-visible { background: rgb(var(--brass-rgb) / 0.22); color: var(--candle-400); outline: none; }
+  &:disabled { opacity: 0.45; cursor: default; } }

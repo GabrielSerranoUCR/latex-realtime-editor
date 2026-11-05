@@ -1,0 +1,138 @@
+name: Build and deploy
+
+# On every push to main (and on version tags): build the two images, push them to GitHub's container registry
+# (private), then ask Coolify to redeploy. The images are never pulled by this pipeline or by anyone else:
+# only the server pulls them, signed in to ghcr.io with its own read-only token (see deploy/README.md).
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      platforms:
+        description: Platforms to build (linux/amd64, or linux/amd64,linux/arm64 for an ARM server)
+        default: linux/amd64
+      deploy:
+        description: Redeploy on Coolify after pushing
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy
+  cancel-in-progress: false # a deployment that has started is allowed to finish
+
+env:
+  REGISTRY: ghcr.io
+  PLATFORMS: ${{ inputs.platforms || vars.IMAGE_PLATFORMS || 'linux/amd64' }}
+
+jobs:
+  images:
+    name: Image · ${{ matrix.image }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write # push to ghcr.io, nothing more
+    strategy:
+      fail-fast: true
+      matrix:
+        image: [backend, frontend]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+
+      - uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4.8.0
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # image names are written in lower case, as the registry requires; the source label ties each package to this repository
+      - id: meta
+        uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
+        with:
+          images: ${{ env.REGISTRY }}/${{ github.repository }}/${{ matrix.image }}
+          tags: |
+            type=raw,value=latest,enable={{is_default_branch}}
+            type=sha,format=long
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+
+      - uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: ./${{ matrix.image }}
+          platforms: ${{ env.PLATFORMS }}
+          push: true
+          provenance: false
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha,scope=${{ matrix.image }}
+          cache-to: type=gha,scope=${{ matrix.image }},mode=max
+
+      # The images are meant for one server only. If the registry reports the package as public, say so loudly
+      # (the token this job has may not be allowed to ask, in which case this only warns).
+      - name: Check the package is private
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          OWNER: ${{ github.repository_owner }}
+          PACKAGE: ${{ github.event.repository.name }}/${{ matrix.image }}
+        run: |
+          set -euo pipefail
+          enc=$(printf '%s' "${PACKAGE,,}" | jq -sRr @uri)
+          vis=$(gh api "/orgs/${OWNER}/packages/container/${enc}" -q .visibility 2>/dev/null || gh api "/users/${OWNER}/packages/container/${enc}" -q .visibility)
+          echo "package ${PACKAGE,,} is ${vis}"
+          if [ "$vis" = "public" ]; then
+            echo "::error title=Package is public::ghcr.io package ${PACKAGE,,} is PUBLIC. Set it to private in the package settings."
+            exit 1
+          fi
+
+  deploy:
+    name: Deploy on Coolify
+    needs: images
+    if: ${{ github.event_name != 'workflow_dispatch' || inputs.deploy }}
+    runs-on: ubuntu-latest
+    environment:
+      name: production # protect it with required reviewers in Settings → Environments if you want a manual gate
+      url: ${{ vars.APP_URL }}
+    permissions: {}
+    env:
+      # secrets, not variables: this repository is public, and variables show up in its logs
+      COOLIFY_URL: ${{ secrets.COOLIFY_URL }}
+      COOLIFY_APP_UUID: ${{ secrets.COOLIFY_APP_UUID }}
+      COOLIFY_TOKEN: ${{ secrets.COOLIFY_TOKEN }}
+      APP_URL: ${{ vars.APP_URL }}
+    steps:
+      - name: Check the deployment is configured
+        run: |
+          for v in COOLIFY_URL COOLIFY_APP_UUID COOLIFY_TOKEN; do
+            if [ -z "${!v}" ]; then echo "::error title=Missing setting::$v is not set (see deploy/README.md)"; exit 1; fi
+          done
+
+      - name: Ask Coolify to redeploy
+        run: |
+          set -euo pipefail
+          base="${COOLIFY_URL%/}"
+          auth=(-H "Authorization: Bearer ${COOLIFY_TOKEN}" -H "Accept: application/json")
+          resp=$(curl -fsS "${auth[@]}" "${base}/api/v1/deploy?uuid=${COOLIFY_APP_UUID}&force=true")
+          deployment=$(jq -r '.deployments[0].deployment_uuid // empty' <<<"$resp")
+          if [ -z "$deployment" ]; then echo "::error::Coolify did not start a deployment: $(jq -c . <<<"$resp")"; exit 1; fi
+          echo "Started deployment ${deployment}"
+          for _ in $(seq 1 90); do
+            status=$(curl -fsS "${auth[@]}" "${base}/api/v1/deployments/${deployment}" | jq -r '.status')
+            echo "  ${deployment}: ${status}"
+            case "$status" in
+              finished) exit 0 ;;
+              failed|error|cancelled*) echo "::error::The deployment ${status}. Look at its log in Coolify."; exit 1 ;;
+            esac
+            sleep 10
+          done
+          echo "::error::The deployment did not finish in 15 minutes."
+          exit 1
+
+      - name: Check the site answers
+        if: ${{ env.APP_URL != '' }}
+        run: curl -fsS --retry 12 --retry-delay 5 --retry-all-errors "${APP_URL%/}/healthz"

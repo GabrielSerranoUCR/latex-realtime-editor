@@ -1,0 +1,202 @@
+<dialog class="modal profile" #dlg aria-labelledby="profH" (close)="closed()">
+  <div class="parchment box">
+    <header class="top">
+      <div class="titles">
+        <h2 id="profH">Your Tavern Profile</h2>
+        <p class="lede">How other scribes see you at the table.</p>
+      </div>
+      <button class="x" type="button" aria-label="Close" (click)="close()">✕</button>
+    </header>
+
+    @if (user(); as u) {
+      <div class="who">
+        <span class="avatar" [style.border-color]="'var(--ink-900)'" [style.background]="color()" aria-hidden="true">{{ initials() }}</span>
+        <div class="ident">
+          <b>{{ u.displayName }}</b>
+          <small>{{ u.email }}@if (ownedScrolls() !== null && ownedScrolls()! > 0) { · Owner of {{ ownedScrolls() }} {{ ownedScrolls() === 1 ? 'scroll' : 'scrolls' }} }</small>
+        </div>
+      </div>
+
+      <div class="modal-tabs" role="tablist" aria-label="Profile sections" (keydown)="tabKey($event)">
+        @for (t of tabs; track t.id) {
+          <button type="button" role="tab" [id]="'ptab-' + t.id" [attr.aria-selected]="tab() === t.id" [attr.aria-controls]="'ppanel-' + t.id" [attr.tabindex]="tab() === t.id ? 0 : -1" (click)="pick(t.id)">{{ t.label }}</button>
+        }
+      </div>
+
+      @switch (tab()) {
+        @case ('profile') {
+          <form id="ppanel-profile" role="tabpanel" aria-labelledby="ptab-profile" class="tabpanel" (submit)="saveProfile($event)">
+            <div class="pair">
+              <label class="field"><span>Display name</span><input name="name" maxlength="60" autocomplete="name" required [ngModel]="name()" (ngModelChange)="name.set($event)" /></label>
+              <label class="field"><span>Email</span><input name="email" [value]="u.email" readonly aria-readonly="true" /></label>
+            </div>
+            <label class="field"><span>Guild / affiliation</span><input name="aff" maxlength="80" placeholder="Who do you write for?" [ngModel]="affiliation()" (ngModelChange)="affiliation.set($event)" /></label>
+
+            <fieldset class="colors">
+              <legend>Your cursor colour</legend>
+              <div class="swatches" role="radiogroup" aria-label="Cursor colour">
+                @for (c of colors; track c.value) {
+                  <button type="button" role="radio" class="swatch" [class.on]="color() === c.value" [attr.aria-checked]="color() === c.value" [attr.aria-label]="c.name" [title]="c.name" [style.background]="c.value" (click)="color.set(c.value)"></button>
+                }
+                <small class="shown">Shown to others as “{{ shownAs() }}”</small>
+              </div>
+            </fieldset>
+
+            <fieldset class="themes">
+              <legend>The look of the tavern</legend>
+              <div class="cards" role="radiogroup" aria-label="Theme">
+                @for (t of themes; track t.id) {
+                  <button type="button" role="radio" class="card" [class.on]="theme() === t.id" [attr.aria-checked]="theme() === t.id" (click)="setTheme(t.id)">
+                    <span class="sw" aria-hidden="true"><i [style.background]="themeColors[t.id][0]"></i><i [style.background]="themeColors[t.id][1]"></i><i [style.background]="themeColors[t.id][2]"></i></span>
+                    <b>{{ t.name }}</b>
+                    <small>{{ t.blurb }}</small>
+                  </button>
+                }
+              </div>
+            </fieldset>
+
+            <qq-toggle [(checked)]="showMyCursor">Show my cursor to other scribes</qq-toggle>
+            <qq-toggle [(checked)]="appearPresent">Appear as present at the table</qq-toggle>
+            @if (!prefs.persistent()) { <p class="hint">This browser will not remember these two once it is closed.</p> }
+
+            @if (profileError(); as e) { <p class="alert" role="alert">{{ e }}</p> }
+            <hr class="rule" />
+            <div class="foot">
+              <button class="btn btn--cancel" type="button" (click)="signOut()">Sign out</button>
+              <span class="sp"></span>
+              <button class="btn btn--ink" type="button" (click)="close()">Cancel</button>
+              <button class="btn" type="submit" [disabled]="saving()">Save profile</button>
+            </div>
+          </form>
+        }
+
+        @case ('security') {
+          <div id="ppanel-security" role="tabpanel" aria-labelledby="ptab-security" class="tabpanel">
+            <h3 class="section-h">Password</h3>
+            <form (submit)="changePassword($event)" class="pw">
+              <div class="pair">
+                <label class="field"><span>Current password</span><input name="cur" type="password" autocomplete="current-password" [ngModel]="currentPw()" (ngModelChange)="currentPw.set($event)" /></label>
+                <label class="field"><span>New password</span><input name="new" type="password" autocomplete="new-password" placeholder="At least 10 characters" [ngModel]="newPw()" (ngModelChange)="newPw.set($event)" /></label>
+              </div>
+              <div class="pair meta">
+                <button type="button" class="link" (click)="emailReset()">Forgot your password? Email me a reset link</button>
+                <span class="strength" [attr.data-score]="strength().score" aria-live="polite">
+                  @if (newPw()) { <i class="bars" aria-hidden="true"><b></b><b></b><b></b><b></b></i> Strength: {{ strength().label }} }
+                </span>
+              </div>
+              @if (pwError(); as e) { <p class="alert" role="alert">{{ e }}</p> }
+              @if (pwNotice(); as n) { <p class="notice" role="status">{{ n }}</p> }
+              <button class="btn" type="submit" [disabled]="pwBusy() || !currentPw() || strength().score === 0">Update password</button>
+            </form>
+
+            <hr class="rule" />
+            <h3 class="section-h">Active sessions</h3>
+            @if (sessionsError(); as e) { <p class="alert" role="alert">{{ e }}</p> }
+            <ul class="sessions">
+              @for (s of sessions(); track s.id) {
+                <li>
+                  <span class="dev" aria-hidden="true">{{ device(s).kind === 'phone' ? '▯' : device(s).kind === 'tablet' ? '▭' : '▤' }}</span>
+                  <span class="what"><b>{{ device(s).label }}</b><small>{{ when(s) }}</small></span>
+                  @if (s.current) { <span class="chip chip--ok cur">Current</span> }
+                  @else { <button type="button" class="link out" (click)="revoke(s)" [attr.aria-label]="'Sign out ' + device(s).label">Sign out</button> }
+                </li>
+              } @empty { <li class="none">No other sessions.</li> }
+            </ul>
+
+            <hr class="rule" />
+            <h3 class="section-h">Access tokens</h3>
+            <p class="hint">For AI assistants. A token lets a program act as you, through the Gilded Quill MCP server, with your own access to scrolls and no more. It is shown once.</p>
+            @if (newToken(); as n) {
+              <div class="fresh" role="status">
+                <b>Your new token. Copy it now: it will not be shown again.</b>
+                <div class="copyrow"><input readonly [value]="n.token" aria-label="New access token" (focus)="$any($event.target).select()" /><button type="button" class="btn btn--sm" (click)="copy('token')">{{ copied() === 'token' ? 'Copied ✓' : 'Copy' }}</button></div>
+                <small>For an MCP client such as Claude Desktop, add this to its configuration (change the path to where this project lives):</small>
+                <pre class="cfg">{{ n.config }}</pre>
+                <button type="button" class="btn btn--sm btn--ink" (click)="copy('config')">{{ copied() === 'config' ? 'Copied ✓' : 'Copy the configuration' }}</button>
+              </div>
+            }
+            <form class="newtoken" (submit)="makeToken($event)">
+              <label class="field"><span>Name</span><input name="tname" maxlength="60" placeholder="Claude on my laptop" [ngModel]="tokenName()" (ngModelChange)="tokenName.set($event)" /></label>
+              <label class="field"><span>Valid for</span>
+                <select name="tdays" [ngModel]="tokenDays()" (ngModelChange)="tokenDays.set($event)">
+                  @for (c of expiryChoices; track c.label) { <option [ngValue]="c.days">{{ c.label }}</option> }
+                </select>
+              </label>
+              <qq-toggle [(checked)]="tokenWrite">Allow editing (otherwise it can only read and compile)</qq-toggle>
+              @if (tokenError(); as e) { <p class="alert" role="alert">{{ e }}</p> }
+              <button class="btn btn--sm" type="submit" [disabled]="!tokenName().trim()">Make a token</button>
+            </form>
+            <ul class="sessions tokens">
+              @for (t of tokens(); track t.id) {
+                <li>
+                  <span class="what"><b>{{ t.name }}</b><small>{{ t.write ? 'can edit' : 'read only' }} · {{ tokenWhen(t) }}{{ t.expiresAt ? ' · expires ' + (t.expiresAt | date: 'mediumDate') : '' }}</small></span>
+                  <button type="button" class="link out" (click)="revokeToken(t)" [attr.aria-label]="'Revoke ' + t.name">Revoke</button>
+                </li>
+              } @empty { <li class="none">No access tokens.</li> }
+            </ul>
+
+            <hr class="rule" />
+            <div class="foot">
+              <button type="button" class="link danger" (click)="askDelete()">Delete my account</button>
+              <span class="sp"></span>
+              <button class="btn btn--ink" type="button" (click)="close()">Close</button>
+            </div>
+          </div>
+        }
+
+        @case ('notifications') {
+          <form id="ppanel-notifications" role="tabpanel" aria-labelledby="ptab-notifications" class="tabpanel" (submit)="$event.preventDefault(); saveNotifications()">
+            <h3 class="section-h">In the tavern</h3>
+            <qq-toggle [(checked)]="nMentions">Tell me about new margin notes and @mentions</qq-toggle>
+            <qq-toggle [(checked)]="nDesktop">Desktop notifications when this tab is hidden</qq-toggle>
+            <qq-toggle [(checked)]="nBell">Play a bell for new margin notes</qq-toggle>
+            <qq-toggle [(checked)]="nJoinLeave">Scribes joining or leaving the table</qq-toggle>
+            @if (notifyNote(); as n) { <p class="alert" role="alert">{{ n }}</p> }
+            <label class="field quiet">
+              <span>Quiet hours</span>
+              <select name="quiet" [ngModel]="nQuiet()" (ngModelChange)="nQuiet.set($event)">
+                @for (q of quietChoices; track q[0]) { <option [value]="q[0]">{{ q[1] }}</option> }
+              </select>
+              <small>Nothing pops up, rings or gets announced during quiet hours.</small>
+            </label>
+            @if (!prefs.persistent()) { <p class="hint">This browser will not remember these once it is closed.</p> }
+            <div class="foot">
+              <span class="sp"></span>
+              <button class="btn btn--ink" type="button" (click)="close()">Cancel</button>
+              <button class="btn" type="submit">Save preferences</button>
+            </div>
+          </form>
+        }
+      }
+    }
+  </div>
+</dialog>
+
+<dialog class="modal danger-dlg" #deleteDlg aria-labelledby="delH">
+  <form class="parchment box warn" (submit)="deleteAccount($event)">
+    <header class="top">
+      <span class="seal" aria-hidden="true">✕</span>
+      <div class="titles">
+        <h2 id="delH">Leave the tavern for good?</h2>
+        <p class="lede">This permanently deletes your account.</p>
+      </div>
+      <button class="x" type="button" aria-label="Close" (click)="deleteDlg.close()">✕</button>
+    </header>
+    <p class="warning" role="note">Scrolls you own with other scribes will be handed to the next scribe in line. Scrolls with no other scribes will be deleted. This cannot be undone.</p>
+    <label class="field">
+      <span>Type your email to confirm</span>
+      <input name="delemail" autocomplete="off" [placeholder]="user()?.email ?? ''" [ngModel]="confirmEmail()" (ngModelChange)="confirmEmail.set($event)" />
+      @if (confirmEmail() && !emailMatches()) { <small class="bad">The email does not match your account.</small> }
+    </label>
+    <label class="field">
+      <span>Your password</span>
+      <input name="delpw" type="password" autocomplete="current-password" [ngModel]="confirmPw()" (ngModelChange)="confirmPw.set($event)" />
+    </label>
+    @if (deleteError(); as e) { <p class="alert" role="alert">{{ e }}</p> }
+    <div class="foot">
+      <span class="sp"></span>
+      <button class="btn btn--ink" type="button" (click)="deleteDlg.close()">Cancel</button>
+      <button class="btn btn--danger" type="submit" [disabled]="deleting() || !emailMatches() || !confirmPw()">Delete my account</button>
+    </div>
+  </form>
+</dialog>

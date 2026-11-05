@@ -1,0 +1,330 @@
+<div class="screen" (dragover)="dragOver($event)" (dragleave)="dragLeave($event)" (drop)="dropped($event)">
+  <header class="beam">
+    <a class="back" [routerLink]="['/scroll', id()]" aria-label="Back to the scriptorium" title="Back to the scriptorium">←</a>
+    <div class="crumb">
+      <h1>The Tavern Hall</h1>
+      <p>{{ scroll()?.title ?? '…' }} <span aria-hidden="true">›</span> all tables</p>
+    </div>
+    <span class="sp"></span>
+    <div class="tabs" role="tablist" aria-label="View">
+      <button role="tab" type="button" [attr.aria-selected]="view() === 'tavern'" [class.on]="view() === 'tavern'" (click)="view.set('tavern')">Tavern</button>
+      <button role="tab" type="button" [attr.aria-selected]="view() === 'list'" [class.on]="view() === 'list'" (click)="view.set('list')">List</button>
+    </div>
+    <span class="gap"></span>
+    @if (canEdit()) {
+      <button class="btn btn--ghost" type="button" (click)="askNewTable()">New Table</button>
+      <button class="btn" type="button" (click)="choose()">Upload</button>
+    }
+    <button class="avatar" type="button" (click)="modals.openProfile()" [style.background]="collab.me().color" title="Your tavern profile" aria-label="Your tavern profile">{{ initials(collab.me().name) }}</button>
+    <input #picker type="file" hidden multiple [accept]="accept" (change)="picked(picker)" />
+  </header>
+
+  @if (collab.status() === 'offline' && collab.roomId()) {
+    <div class="banner" role="alert"><b>The raven lost its way — you are offline.</b> <span>The hall will refresh when you reconnect.</span></div>
+  }
+  @if (notice(); as n) {
+    <div class="note" [class.bad]="n.kind === 'bad'" [attr.role]="n.kind === 'bad' ? 'alert' : 'status'">
+      <span>{{ n.text }}</span>
+      <button type="button" aria-label="Dismiss" (click)="notice.set(null)">✕</button>
+    </div>
+  }
+
+  <div class="body">
+    <main class="floor" [class.list]="view() === 'list'" aria-label="Tables and members">
+      @if (!collab.synced()) {
+        <p class="loading" role="status">Lighting the candles…</p>
+      } @else if (isEmpty()) {
+        <section class="empty" aria-labelledby="emptyH">
+          <div class="ghost-table" aria-hidden="true">
+            <img class="rug" src="/tavern/rug.svg" alt="" />
+            <img class="top" src="/tavern/table-top.svg" alt="" />
+            <img class="inlay" src="/tavern/table-inlay.svg" alt="" />
+            @for (i of [0, 1, 2, 3, 4, 5]; track i) { <i class="seat" [style.--a]="i * 60 - 90 + 'deg'"></i> }
+          </div>
+          <h2 id="emptyH">The tavern stands empty</h2>
+          <p>No tables or members yet. Upload your first files to fill the hall.</p>
+          @if (canEdit()) {
+            <div class="row">
+              <button class="btn" type="button" (click)="choose()">Upload files</button>
+              <button class="btn btn--ghost" type="button" (click)="askNewTable()">New table</button>
+            </div>
+          }
+        </section>
+      } @else if (view() === 'tavern') {
+        <div
+          #map
+          class="map"
+          [class.panning]="panning()"
+          tabindex="0"
+          role="application"
+          aria-label="Map of the tavern. Drag to pan, Control or Command with scroll to zoom, plus and minus keys to zoom, arrow keys to move, F to fit everything."
+          (wheel)="onWheel($event)"
+          (pointerdown)="panStart($event)"
+          (pointermove)="panMove($event)"
+          (pointerup)="panEnd($event)"
+          (pointercancel)="panEnd($event)"
+          (keydown)="mapKey($event)"
+        >
+          <div class="world" [class.movable]="canEdit()" [class.carrying]="!!carried()" [class.smooth]="smooth()" [class.far]="far()" [style.transform]="worldTransform()">
+            @for (t of visibleItems(); track t.table.path) {
+              <section class="table" [class.drop]="(dragging() || moving()) && dropTable() === t.table.path" [attr.data-table]="t.table.path" [style.left.px]="t.rect.x" [style.top.px]="t.rect.y" [style.width.px]="t.layout.cell" [style.height.px]="t.layout.cell" role="group" [attr.aria-label]="t.table.label + ', ' + plural(t.table.members.length)">
+                <img class="rug" src="/tavern/rug.svg" alt="" [style.width.px]="t.layout.cell - 20" [style.height.px]="t.layout.cell - 20" />
+                <img class="top" src="/tavern/table-top.svg" alt="" [style.left.px]="t.layout.cell / 2 - 102" [style.top.px]="t.layout.cell / 2 - 88" />
+                <img class="inlay" src="/tavern/table-inlay.svg" alt="" [style.left.px]="t.layout.cell / 2 - 65" [style.top.px]="t.layout.cell / 2 - 65" />
+                <div class="plaque" [style.top.px]="t.layout.cell / 2 - 24.5">
+                  <b>{{ t.table.label }}</b>
+                  <i>{{ plural(t.table.members.length) }}</i>
+                  @if (canRemoveTable(t.table)) { <button type="button" class="rm" [attr.aria-label]="'Remove empty table ' + t.table.label" (click)="removeTable(t.table.path)">✕</button> }
+                </div>
+
+                @for (m of t.plan.seated; track m.path; let i = $index) {
+                  @let p = t.layout.points[i];
+                  @let on = selected() === m.path;
+                  <button
+                    type="button"
+                    class="member"
+                    [class.on]="on"
+                    [class.carried]="moving() === m.path"
+                    [attr.draggable]="canEdit() ? 'true' : null"
+                    (dragstart)="dragMember($event, m)"
+                    (dragend)="dragMemberEnd()"
+                    [style.left.px]="p.x - 34"
+                    [style.top.px]="p.y - 34"
+                    [attr.aria-label]="m.path + (m.main ? ', the main scroll' : '')"
+                    [attr.aria-pressed]="on"
+                    (click)="select(m.path); $event.stopPropagation()"
+                    (dblclick)="open(m)"
+                    (contextmenu)="showMenu($event, m)"
+                    (keydown)="memberKey($event, m)"
+                  >
+                    @if (on) { <img class="glow" src="/tavern/selected-glow.svg" alt="" draggable="false" /> }
+                    <img class="stool" src="/tavern/stool.svg" alt="" draggable="false" />
+                    <span class="face" [class.pic]="thumb(m)">
+                      @if (thumb(m); as src) { <img [src]="src" alt="" loading="lazy" draggable="false" /> } @else { <qq-member-icon [kind]="m.kind" [main]="m.main" /> }
+                    </span>
+                    @for (peer of seatedAt(m.path).slice(0, 1); track peer.clientId) {
+                      <span class="badge" [style.background]="peer.user.color" [title]="peer.user.name + ' is in this file'">{{ initials(peer.user.name) }}</span>
+                    }
+                    <span class="label" [style.width.px]="t.layout.labelW">{{ m.name }}</span>
+                    <span class="peek" aria-hidden="true">
+                      @if (thumb(m); as src) { <img [src]="src" alt="" draggable="false" /> }
+                      <span><b>{{ m.name }}</b><i>{{ kb(m.size) }} · {{ m.ext.toUpperCase() }}</i></span>
+                    </span>
+                  </button>
+                }
+                @if (t.plan.overflow) {
+                  @let p = t.layout.points[t.plan.seated.length];
+                  <button type="button" class="member more" [style.left.px]="p.x - 34" [style.top.px]="p.y - 34" [attr.aria-label]="t.plan.overflow + ' more members at ' + t.table.label + '. Open the bench to see everyone.'" (click)="openBench(t.table); $event.stopPropagation()">
+                    <img class="stool" src="/tavern/stool.svg" alt="" draggable="false" />
+                    <span class="face plus">+{{ t.plan.overflow }}</span>
+                    <span class="label" [style.width.px]="t.layout.labelW">the bench</span>
+                  </button>
+                }
+              </section>
+            }
+          </div>
+
+          <div class="hud tl">
+            <label>Go to <select aria-label="Go to table" (change)="goTo($any($event.target).value)">
+              @for (t of tables(); track t.path) { <option [value]="t.path">{{ t.label }}</option> }
+            </select></label>
+            <span class="hint">Drag to pan · Ctrl/⌘ + scroll to zoom</span>
+          </div>
+          <div class="hud zoom" role="group" aria-label="Zoom">
+            <button type="button" aria-label="Zoom out" title="Zoom out (−)" [disabled]="mapView().k <= zoomBounds.min" (click)="zoomBy(1 / 1.25)">−</button>
+            <button type="button" class="pct" title="Back to 100% (0)" (click)="resetZoom()">{{ zoomPct() }}%</button>
+            <button type="button" aria-label="Zoom in" title="Zoom in (+)" [disabled]="mapView().k >= zoomBounds.max" (click)="zoomBy(1.25)">+</button>
+            <button type="button" aria-label="Fit every table on screen" title="Fit all tables (F)" (click)="fit()">⤢</button>
+          </div>
+          <div class="minimap" aria-hidden="true" (click)="jumpMini($event)" [style.width.px]="mini().W" [style.height.px]="mini().H">
+            @for (d of mini().dots; track d.path) { <i class="dot" [style.left.px]="d.x" [style.top.px]="d.y" [style.width.px]="d.d" [style.height.px]="d.d"></i> }
+            <b class="vp" [style.left.px]="mini().view.x" [style.top.px]="mini().view.y" [style.width.px]="mini().view.w" [style.height.px]="mini().view.h"></b>
+          </div>
+        </div>
+        @if (canEdit()) {
+          <div class="door" [class.hot]="dragging() && dropTable() === null" role="button" tabindex="0" (click)="choose()" (keydown.enter)="choose()">
+            <span class="ico" aria-hidden="true">⌂</span>
+            <span>Knock on the door — drop files, images or a .zip here to seat new members</span>
+          </div>
+        }
+      } @else {
+        <div class="toolbar">
+          <input class="search" type="search" placeholder="Search members…" aria-label="Search members" [ngModel]="query()" (ngModelChange)="query.set($event)" name="q" />
+          @for (f of filters; track f.key) {
+            <button type="button" class="fchip" [class.on]="filter() === f.key" [attr.aria-pressed]="filter() === f.key" (click)="filter.set(f.key)">{{ f.label }}</button>
+          }
+          <span class="sp"></span>
+          <span class="sorted">Sorted by table</span>
+        </div>
+        <div class="grid" role="table" aria-label="Members by table">
+          <div class="cols" role="row"><span role="columnheader">Name</span><span role="columnheader">Size</span><span role="columnheader">At the table</span></div>
+          @for (t of listTables(); track t.path) {
+            <button type="button" class="group" [attr.aria-expanded]="!collapsed().has(t.path)" [attr.data-table]="t.path" [class.drop]="(dragging() || moving()) && dropTable() === t.path" (click)="toggleTable(t.path)">
+              <span class="chev">{{ collapsed().has(t.path) ? '▸' : '▾' }}</span><i class="dot"></i><b>{{ t.label }}</b><em>{{ plural(t.members.length) }}</em>
+            </button>
+            @if (!collapsed().has(t.path)) {
+              @for (m of t.members; track m.path) {
+                <div class="row" role="row" tabindex="0" [class.on]="selected() === m.path" [class.carried]="moving() === m.path" [attr.draggable]="canEdit() ? 'true' : null" (dragstart)="dragMember($event, m)" (dragend)="dragMemberEnd()" [attr.aria-label]="m.path" (click)="select(m.path); $event.stopPropagation()" (dblclick)="open(m)" (contextmenu)="showMenu($event, m)" (keydown)="memberKey($event, m)">
+                  <span class="nm" role="cell">
+                    <span class="face sm" [class.pic]="thumb(m)">@if (thumb(m); as src) { <img [src]="src" alt="" loading="lazy" draggable="false" /> } @else { <qq-member-icon [kind]="m.kind" [main]="m.main" /> }</span>
+                    <span class="txt">{{ m.name }}</span>
+                  </span>
+                  <span class="sz" role="cell">{{ kb(m.size) }}</span>
+                  <span class="who" role="cell">
+                    @for (peer of seatedAt(m.path); track peer.clientId) { <span class="badge sm" [style.background]="peer.user.color" [title]="peer.user.name">{{ initials(peer.user.name) }}</span> }
+                  </span>
+                </div>
+              }
+            }
+          } @empty {
+            <p class="none">Nobody matches. Try another search or filter.</p>
+          }
+        </div>
+      }
+    </main>
+
+    @if (current(); as m) {
+      @if (m.asset) {
+        <qq-portrait-panel
+          class="side"
+          [scrollId]="id()"
+          [asset]="m.asset"
+          [canEdit]="canEdit()"
+          [mates]="mates()"
+          [usage]="usage()"
+          (pick)="select($event)"
+          (closed)="selected.set(null)"
+          (insert)="insertFrom($event)"
+          (replace)="onReplace($event)"
+          (remove)="askRemove($event)"
+        />
+      } @else {
+        <qq-text-portrait
+          class="side"
+          [member]="m"
+          [text]="text()"
+          [usage]="usage()"
+          [canEdit]="canEdit()"
+          (closed)="selected.set(null)"
+          (open)="open(m)"
+          (download)="download(m.path)"
+          (rename)="askRename(m.path)"
+          (remove)="askRemove(m.path)"
+        />
+      }
+    } @else {
+      <aside class="side none-yet" aria-label="Portrait gallery">
+        <header><span class="eyebrow-ink">Portrait gallery</span></header>
+        <div class="blank">
+          <span class="frame" aria-hidden="true">▣</span>
+          <h3>No portrait to show</h3>
+          <p>Seat a member at a table and select them to see a preview here.</p>
+        </div>
+      </aside>
+    }
+  </div>
+
+  @if (dragging()) {
+    <div class="curtain" aria-hidden="true">
+      <div class="parchment card">
+        <span class="seal">⌂</span>
+        <h2>Drop to seat new members</h2>
+        <p class="lede">{{ dropTable() === null ? 'Release anywhere on the page. Images and PDFs sit at the figures table, text files in the main hall.' : 'They will sit at ' + (dropTable() ? dropTable() + '/' : 'the main hall') + '.' }}</p>
+        <p class="kinds">@for (k of ['.tex', '.bib', '.sty', '.md', '.png', '.jpg', '.svg', '.pdf']; track k) { <code>{{ k }}</code> }</p>
+        <small>Up to 25 MB per file · text files up to 1 MB</small>
+      </div>
+    </div>
+  }
+</div>
+
+@if (menu(); as m) {
+  @if (menuMember(); as mm) {
+    <div class="menu" role="menu" [style.left.px]="m.x" [style.top.px]="m.y" (click)="$event.stopPropagation()">
+      <button role="menuitem" type="button" (click)="open(mm); menu.set(null)"><span>{{ mm.asset ? 'Show portrait' : 'Open in editor' }}</span><kbd>↵</kbd></button>
+      @if (canEdit()) {
+        <button role="menuitem" type="button" (click)="askRename(mm.path)"><span>Rename</span><kbd>F2</kbd></button>
+        <button role="menuitem" type="button" aria-haspopup="menu" [attr.aria-expanded]="m.sub" (click)="menu.set({ x: m.x, y: m.y, path: m.path, sub: !m.sub })"><span>Move to table…</span><kbd>›</kbd></button>
+        <button role="menuitem" type="button" (click)="duplicate(mm.path)"><span>Duplicate</span></button>
+      }
+      <button role="menuitem" type="button" (click)="download(mm.path); menu.set(null)"><span>Download</span></button>
+      <button role="menuitem" type="button" (click)="copyPathText(mm.path); menu.set(null)"><span>Copy path</span></button>
+      @if (canEdit() && !mm.main) {
+        <button role="menuitem" type="button" class="danger" (click)="askRemove(mm.path)"><span>Remove from tavern</span><kbd>⌫</kbd></button>
+      }
+      @if (m.sub) {
+        <div class="submenu" role="menu" aria-label="Move to table">
+          @for (t of moveTargets(); track t.path) {
+            <button role="menuitem" type="button" [disabled]="t.current" (click)="onMove(mm.path, t.path)">{{ t.label }}@if (t.current) { <em> (current)</em> }</button>
+          }
+          <button role="menuitem" type="button" class="newt" (click)="askNewTable(mm.path)">＋ New table…</button>
+        </div>
+      }
+    </div>
+  }
+}
+
+<qq-import-dialog [scrollId]="id()" />
+
+<dialog class="modal" #newTableDlg aria-labelledby="ntH">
+  <form class="parchment dlg" (submit)="createTable($event)">
+    <h2 id="ntH">Pull Up a New Table</h2>
+    <p class="lede">Tables hold related files, like a folder.</p>
+    <label class="field">
+      <span>Table name</span>
+      <input name="tname" [ngModel]="tableName()" (ngModelChange)="tableName.set($event)" placeholder="appendix" autocomplete="off" required />
+      <small>Letters, numbers, dashes and underscores.</small>
+    </label>
+    <label class="field">
+      <span>Place it in</span>
+      <select name="tparent" [ngModel]="tableParent()" (ngModelChange)="tableParent.set($event)">
+        @for (c of parentChoices(); track c.path) { <option [value]="c.path">{{ c.label }}</option> }
+      </select>
+    </label>
+    @if (tableError(); as e) { <p class="alert" role="alert">{{ e }}</p> }
+    <div class="actions">
+      <button class="btn btn--ink" type="button" (click)="closeDialog(newTableDlg)">Cancel</button>
+      <button class="btn" type="submit">Create table</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog class="modal" #renameDlg aria-labelledby="rnH">
+  <form class="parchment dlg" (submit)="doRename($event)">
+    <h2 id="rnH">Rename Member</h2>
+    <p class="lede">{{ renaming() }}</p>
+    <label class="field">
+      <span>New name</span>
+      <input name="rname" [ngModel]="renameValue()" (ngModelChange)="renameValue.set($event)" autocomplete="off" required />
+    </label>
+    @if (renameError(); as e) { <p class="alert" role="alert">{{ e }}</p> }
+    <div class="actions">
+      <button class="btn btn--ink" type="button" (click)="closeDialog(renameDlg)">Cancel</button>
+      <button class="btn" type="submit">Rename</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog class="modal" #benchDlg aria-labelledby="bnH">
+  <div class="parchment dlg bench">
+    <h2 id="bnH">Everyone at {{ bench()?.label }}</h2>
+    <p class="lede">{{ plural(bench()?.members?.length ?? 0) }} sit here. Pick one to seat them at a stool and see their portrait.</p>
+    <input class="search" type="search" placeholder="Find a member…" aria-label="Find a member" [ngModel]="benchQuery()" (ngModelChange)="benchQuery.set($event)" name="bq" />
+    <ul>
+      @for (m of benchList(); track m.path) {
+        <li><button type="button" (click)="sitAt(m)"><qq-member-icon [kind]="m.kind" [main]="m.main" /><span class="nm">{{ m.name }}</span><small>{{ kb(m.size) }}</small></button></li>
+      } @empty { <li class="none">Nobody by that name.</li> }
+    </ul>
+    <div class="actions"><button class="btn btn--ink" type="button" (click)="benchDlg.close()">Close</button></div>
+  </div>
+</dialog>
+
+<dialog class="modal" #removeDlg aria-labelledby="rmH">
+  <div class="parchment dlg">
+    <h2 id="rmH">Remove from the Tavern?</h2>
+    <p class="lede"><b>{{ removing() }}</b> will leave the tavern for everyone at the table. {{ members().get(removing() ?? '')?.asset ? 'Any \\includegraphics that uses it will stop compiling.' : 'Its text goes with it.' }}</p>
+    <div class="actions">
+      <button class="btn btn--ink" type="button" (click)="closeDialog(removeDlg)">Keep it</button>
+      <button class="btn btn--danger" type="button" (click)="doRemove()">Remove</button>
+    </div>
+  </div>
+</dialog>

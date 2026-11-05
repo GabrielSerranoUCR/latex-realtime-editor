@@ -1,0 +1,79 @@
+<dialog class="modal settings" #dlg aria-labelledby="setH" (close)="closed()">
+  <form class="parchment box" (submit)="save($event)">
+    <header class="top">
+      <div class="titles">
+        <h2 id="setH">Tavern Settings</h2>
+        <p class="lede">{{ tab() === 'compiler' ? 'Tune how your scroll is inked.' : tab() === 'editor' ? 'Make the writing desk your own.' : 'How scribes work together at this table.' }}</p>
+      </div>
+      <button class="x" type="button" aria-label="Close" (click)="close()">✕</button>
+    </header>
+
+    <div class="modal-tabs" role="tablist" aria-label="Settings sections" (keydown)="tabKey($event)">
+      @for (t of tabs; track t.id) {
+        <button type="button" role="tab" [id]="'stab-' + t.id" [attr.aria-selected]="tab() === t.id" [attr.aria-controls]="'spanel-' + t.id" [attr.tabindex]="tab() === t.id ? 0 : -1" (click)="pick(t.id)">{{ t.label }}</button>
+      }
+    </div>
+
+    @switch (tab()) {
+      @case ('compiler') {
+        <div id="spanel-compiler" role="tabpanel" aria-labelledby="stab-compiler" class="tabpanel">
+          @if (scroll()) {
+            <label class="field">
+              <span>Main document</span>
+              <select name="main" [disabled]="!canEdit()" [ngModel]="main()" (ngModelChange)="main.set($event)">
+                @for (f of texFiles(); track f) { <option [value]="f">{{ f }}</option> }
+                @if (!texFiles().includes(main())) { <option [value]="main()">{{ main() }}</option> }
+              </select>
+              <small>{{ canEdit() ? 'The file that gets compiled. This is shared: everyone at the table builds the same one.' : 'Only scribes and the owner can change the main document.' }}</small>
+            </label>
+          }
+          <div class="field">
+            <span>TeX engine</span>
+            <p class="static"><b>Tectonic</b> <small>(the only engine this tavern has installed)</small></p>
+          </div>
+          <h3 class="section-h">Behaviour</h3>
+          <qq-toggle [(checked)]="autoCompile">Auto-compile when I stop typing</qq-toggle>
+          <qq-toggle [(checked)]="showWarnings">Show warnings in the ink log</qq-toggle>
+          <p class="hint">These two are kept in this browser, for you only.</p>
+        </div>
+      }
+      @case ('editor') {
+        <div id="spanel-editor" role="tabpanel" aria-labelledby="stab-editor" class="tabpanel">
+          <label class="field">
+            <span>Font family</span>
+            <select name="font" [ngModel]="fontFamily()" (ngModelChange)="fontFamily.set($event)">
+              @for (f of fonts; track f[0]) { <option [value]="f[0]">{{ f[1] }}</option> }
+            </select>
+          </label>
+          <div class="pair">
+            <label class="field"><span>Font size (px)</span><input name="size" type="number" [min]="sizeLimits[0]" [max]="sizeLimits[1]" step="1" [ngModel]="fontSize()" (ngModelChange)="fontSize.set($event)" /></label>
+            <label class="field"><span>Line height (px)</span><input name="lh" type="number" [min]="heightLimits[0]" [max]="heightLimits[1]" step="1" [ngModel]="lineHeight()" (ngModelChange)="lineHeight.set($event)" /></label>
+          </div>
+          <pre class="sample" aria-label="Preview of your editor text" [style.font-family]="sample().family" [style.font-size.px]="sample().size" [style.line-height.px]="sample().height">\begin{{ '{' }}equation{{ '}' }}
+  E_0 = \tfrac{{ '{' }}1{{ '}' }}{{ '{' }}2{{ '}' }}\hbar\omega
+\end{{ '{' }}equation{{ '}' }}</pre>
+          <h3 class="section-h">Behaviour</h3>
+          <qq-toggle [(checked)]="lineNumbers">Show line numbers</qq-toggle>
+          <qq-toggle [(checked)]="wrapLines">Wrap long lines</qq-toggle>
+          <qq-toggle [(checked)]="autoClose">Auto-close brackets and braces</qq-toggle>
+          <qq-toggle [(checked)]="spellcheck">Spell-check with the browser</qq-toggle>
+          <p class="hint">Kept in this browser, for you only.</p>
+        </div>
+      }
+      @case ('collaboration') {
+        <div id="spanel-collaboration" role="tabpanel" aria-labelledby="stab-collaboration" class="tabpanel">
+          <h3 class="section-h first">Presence</h3>
+          <qq-toggle [(checked)]="showOthersCursors">Show other scribes' cursors</qq-toggle>
+          <qq-toggle [(checked)]="showNameFlags">Show name flags beside cursors</qq-toggle>
+          <p class="hint">What others see of <i>you</i> is in your profile (Show my cursor, Appear as present). These settings are kept in this browser.</p>
+        </div>
+      }
+    }
+
+    <div class="foot">
+      <span class="sp"></span>
+      <button class="btn btn--ink" type="button" (click)="close()">Cancel</button>
+      <button class="btn" type="submit">Save changes</button>
+    </div>
+  </form>
+</dialog>

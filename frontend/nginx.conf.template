@@ -1,0 +1,64 @@
+# Filled in by nginx at start: ${BACKEND_URL} and ${NGINX_RESOLVER} come from the environment.
+# The backend address is looked up when a request arrives (not once at start), so this server starts, and keeps
+# working, whether or not the backend is up at that moment.
+server {
+    listen 8080;
+    resolver ${NGINX_RESOLVER} valid=10s ipv6=off;
+    server_name _;
+    root /usr/share/nginx/html;
+    index index.html;
+
+    # pictures and PDFs go up through /api (the backend allows 25 MB by default)
+    client_max_body_size 30m;
+
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+    add_header X-Frame-Options "SAMEORIGIN" always; # the PDF preview is a same-origin frame
+
+    # the API (compiling can take a minute)
+    location /api/ {
+        set $backend "${BACKEND_URL}";
+        proxy_pass $backend;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $http_x_forwarded_proto;
+        proxy_read_timeout 120s;
+        proxy_request_buffering off;
+    }
+
+    # live editing (a WebSocket per open scroll)
+    location /ws/ {
+        set $backend "${BACKEND_URL}";
+        proxy_pass $backend;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_read_timeout 1h;
+        proxy_send_timeout 1h;
+    }
+
+    location = /healthz {
+        set $backend "${BACKEND_URL}";
+        proxy_pass $backend;
+        access_log off;
+    }
+
+    # files with a hash in their name never change
+    location ~* \.(?:js|css|woff2?|svg|png|jpe?g|ico|webp)$ {
+        expires 1y;
+        add_header Cache-Control "public, immutable";
+        add_header X-Content-Type-Options "nosniff" always;
+        try_files $uri =404;
+    }
+
+    # every other address is the app (it does its own routing); the page itself is never cached
+    location / {
+        add_header Cache-Control "no-cache";
+        add_header X-Content-Type-Options "nosniff" always;
+        add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+        add_header X-Frame-Options "SAMEORIGIN" always;
+        try_files $uri $uri/ /index.html;
+    }
+}

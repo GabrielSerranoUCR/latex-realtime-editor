@@ -1,0 +1,117 @@
+<dialog class="modal portrait" #dlg aria-labelledby="portH" (close)="finished.emit()">
+  <div class="parchment">
+    <header class="top">
+      <span class="seal" aria-hidden="true">▣</span>
+      <div class="titles">
+        <h2 id="portH">Hang a Portrait in Your Scroll</h2>
+        <p class="lede">Set how {{ path() || 'an image' }} appears in the document.</p>
+      </div>
+      <button class="x" type="button" aria-label="Close" (click)="close()">✕</button>
+    </header>
+
+    @if (!includable().length) {
+      <p class="empty">No images or PDFs in the hall yet. Drop some on the tavern door first (png, jpg, pdf and eps can be used in LaTeX; svg and webp cannot).</p>
+      <div class="actions"><button class="btn btn--ink" type="button" (click)="close()">Close</button></div>
+    } @else {
+      <div class="cols">
+        <section class="left" aria-label="Preview">
+          <h3 class="cap">On the page</h3>
+          <div class="frame">
+            <div class="page">
+              <b class="h">1 Introduction</b>
+              <i class="ln"></i><i class="ln short"></i>
+              <div class="fig" [style.align-items]="align() === 'left' ? 'flex-start' : align() === 'right' ? 'flex-end' : 'center'">
+                @if (previewUrl(); as url) {
+                  <img [src]="url" alt="" [style.width.%]="previewWidth()" (load)="loaded($event.target)" />
+                } @else {
+                  <span class="noimg">{{ current()?.mime === 'application/pdf' ? 'PDF' : 'EPS' }}</span>
+                }
+                @if (float() && withCaption() && caption().trim()) { <small>Figure 1: {{ caption() }}</small> }
+              </div>
+              <i class="ln"></i><i class="ln short"></i>
+            </div>
+          </div>
+          <p class="meta">↔ {{ widthNote() }}</p>
+
+          <h3 class="cap">Generated LaTeX</h3>
+          <pre class="code" aria-label="Generated LaTeX">{{ latex() }}</pre>
+        </section>
+
+        <section class="right">
+          <label class="field">
+            <span class="cap">Image</span>
+            <select name="image" [ngModel]="path()" (ngModelChange)="select($event)">
+              @for (a of includable(); track a.path) {
+                <option [value]="a.path">{{ a.path }}{{ a.path === path() && dims() ? ' · ' + dims() : '' }}</option>
+              }
+            </select>
+          </label>
+
+          <div class="field">
+            <span class="cap">Width</span>
+            <div class="chips" role="group" aria-label="Width presets">
+              @for (p of presets; track p.label) {
+                <button type="button" class="chip-t" [class.on]="isPreset(p.value)" (click)="preset(p.value)">{{ p.label }}</button>
+              }
+            </div>
+            <div class="slide">
+              <input type="range" min="0.1" max="1" step="0.05" aria-label="Width" [disabled]="width() === null || unit() === 'cm'" [value]="width() ?? 1" (input)="slide($any($event.target).value)" />
+              <input class="num" type="number" step="0.05" min="0" aria-label="Width value" [disabled]="width() === null" [ngModel]="width()" (ngModelChange)="typed($event)" name="w" />
+              <select class="unit" aria-label="Width unit" [ngModel]="unit()" (ngModelChange)="setUnit($event)" name="u">
+                <option value="\textwidth">\textwidth</option>
+                <option value="\linewidth">\linewidth</option>
+                <option value="cm">cm</option>
+              </select>
+            </div>
+            <small class="hint">Keep aspect ratio · height adjusts automatically</small>
+          </div>
+
+          <div class="pair">
+            <div class="field">
+              <span class="cap">Alignment</span>
+              <div class="chips" role="group" aria-label="Alignment">
+                @for (a of aligns; track a) {
+                  <button type="button" class="chip-t" [class.on]="align() === a" (click)="align.set(a)">{{ a }}</button>
+                }
+              </div>
+            </div>
+            <div class="field">
+              <span class="cap">Placement</span>
+              <div class="chips" role="group" aria-label="Placement">
+                @for (p of places; track p.key) {
+                  <button type="button" class="chip-t" [disabled]="!float()" [class.on]="placement().includes(p.key)" (click)="togglePlace(p.key)">{{ p.label }}</button>
+                }
+              </div>
+            </div>
+          </div>
+
+          <label class="switch"><input type="checkbox" role="switch" [checked]="float()" (change)="float.set($any($event.target).checked)" /><span class="track"></span> Wrap in a figure environment (floating)</label>
+
+          @if (float()) {
+            <div class="box">
+              <label class="switch"><input type="checkbox" role="switch" [checked]="withCaption()" (change)="withCaption.set($any($event.target).checked)" /><span class="track"></span> Add a caption</label>
+              @if (withCaption()) {
+                <label class="field"><span class="cap">Caption</span><input name="cap" [ngModel]="caption()" (ngModelChange)="caption.set($event)" placeholder="What does this figure show?" /></label>
+                <label class="switch"><input type="checkbox" role="switch" [checked]="withShort()" (change)="withShort.set($any($event.target).checked)" /><span class="track"></span> Short caption for the list of figures</label>
+                @if (withShort()) { <input name="short" aria-label="Short caption" [ngModel]="short()" (ngModelChange)="short.set($event)" /> }
+              }
+            </div>
+            <label class="field">
+              <span class="cap">Label</span>
+              <input name="label" [ngModel]="label()" (ngModelChange)="setLabel($event)" />
+              <small class="hint">Reference it with <code>{{ refHint() }}</code></small>
+            </label>
+          }
+          @if (needsGraphicx()) { <p class="alert" role="status">This document does not load <code>graphicx</code>. Add <code>{{ graphicxLine }}</code> to the preamble or the image will not compile.</p> }
+        </section>
+      </div>
+
+      <footer class="foot">
+        <span class="where">⌖ Insert at cursor · {{ where() }}</span>
+        <span class="sp"></span>
+        <button class="btn btn--ink" type="button" (click)="close()">Cancel</button>
+        <button class="btn" type="button" (click)="submit()" [disabled]="!path()">Insert Portrait</button>
+      </footer>
+    }
+  </div>
+</dialog>

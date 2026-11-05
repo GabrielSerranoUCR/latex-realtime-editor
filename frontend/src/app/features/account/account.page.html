@@ -1,0 +1,110 @@
+<main class="door wood-bg">
+  <section class="hanging-sign">
+    <div class="chains"><i></i><i></i></div>
+    <div class="board">
+      <div class="est">~ EST. IN THE YEAR OF THE QUILL ~</div>
+      <h1>THE GILDED QUILL</h1>
+      <p>A tavern for LaTeX scribes.<br />Draft together. Compile by candlelight.</p>
+    </div>
+    @if (mode() === 'magic-sent' || mode() === 'magic') {
+      <ul class="perks">
+        <li><span class="coin">✎</span> Scribe together in real time</li>
+        <li><span class="coin">⚒</span> Inked by the Tectonic engine</li>
+        <li><span class="coin">❦</span> Preview your finished scroll as PDF</li>
+      </ul>
+    }
+  </section>
+
+  <section class="parchment card">
+    @switch (mode()) {
+      @case ('forgot') {
+        @if (!done()) {
+          <form class="stack" (submit)="submit($event)">
+            <h1>Lost your key?</h1>
+            <p class="lede">Enter your email and we will send a raven with a link to choose a new one.</p>
+            <label class="field"><span>Email</span><input name="email" type="email" autocomplete="email" placeholder="you@guild.com" [(ngModel)]="email" required /></label>
+            @if (error(); as e) { <p class="alert" role="alert">{{ e }}</p> }
+            <button class="btn" type="submit" [disabled]="busy() || !email().trim()">{{ busy() ? 'One moment…' : 'Send reset link' }}</button>
+            <p class="foot"><a routerLink="/login">← Back to sign in</a></p>
+          </form>
+        } @else {
+          <div class="stack center">
+            <h1>A raven is on its way</h1>
+            <p class="lede">If an account uses <b>{{ email() }}</b>, a reset link is on its way. It works once and expires in an hour.</p>
+            <a class="btn" routerLink="/login">Back to sign in</a>
+          </div>
+        }
+      }
+      @case ('reset') {
+        @if (!done()) {
+          <form class="stack" (submit)="submit($event)">
+            <h1>Choose a New Key</h1>
+            <p class="lede">Make it long and memorable. You will be signed out on all devices.</p>
+            <label class="field"><span>New password</span><input name="password" type="password" autocomplete="new-password" [(ngModel)]="password" required /></label>
+            <label class="field"><span>Confirm new password</span><input name="confirm" type="password" autocomplete="new-password" [(ngModel)]="confirm" required /></label>
+            <ul class="rules">
+              <li [class.ok]="longEnough()">At least 10 characters</li>
+              <li [class.ok]="confirm().length > 0 && !mismatch()">Both passwords match</li>
+            </ul>
+            @if (error(); as e) { <p class="alert" role="alert">{{ e }}</p> }
+            <button class="btn" type="submit" [disabled]="busy() || !longEnough() || tooLong() || mismatch() || !confirm()">{{ busy() ? 'One moment…' : 'Save new password' }}</button>
+          </form>
+        } @else {
+          <div class="stack center">
+            <h1>Your key is changed</h1>
+            <p class="lede">You can sign in with your new password now.</p>
+            <button class="btn" type="button" (click)="goSignIn()">Sign in</button>
+          </div>
+        }
+      }
+      @case ('magic-sent') {
+        <div class="stack center">
+          <span class="seal" aria-hidden="true">✦</span>
+          <h1>Your magic link is cast</h1>
+          <p class="lede">Open the link on this device to step into the tavern. It works once.</p>
+          <span class="chip-mail"><span aria-hidden="true">✉</span> {{ sentTo() }}</span>
+          <a class="btn" href="mailto:">Open email app</a>
+          @if (error(); as e) { <p class="alert" role="alert">{{ e }}</p> }
+          <p class="resend" role="status">
+            @if (wait() > 0) {
+              Nothing arrived? Resend in <b>{{ waitText() }}</b>
+            } @else {
+              Nothing arrived? <button type="button" class="link" (click)="resend()" [disabled]="busy()">Resend the link</button>
+            }
+            @if (resent() && wait() > 0) { <br /><span class="ok-note">A new link was sent. The old one no longer works.</span> }
+          </p>
+          <p class="foot"><a routerLink="/login">← Back to sign in</a></p>
+        </div>
+      }
+      @case ('magic') {
+        <div class="stack center">
+          @if (busy()) {
+            <span class="seal" aria-hidden="true">✦</span>
+            <h1>Opening the door…</h1>
+          } @else {
+            <h1>That link did not work</h1>
+            <p class="alert" role="alert">{{ error() }}</p>
+            <p class="lede">Ask for a fresh one on the sign-in page. Each link works once and lasts a quarter of an hour.</p>
+            <a class="btn" routerLink="/login">Back to sign in</a>
+          }
+        </div>
+      }
+      @case ('verify') {
+        <div class="stack center">
+          @if (busy()) {
+            <h1>Checking the seal…</h1>
+          } @else if (done()) {
+            <h1>Email confirmed</h1>
+            <p class="lede">Thank you. You can now accept invitations and recover your account.</p>
+            <a class="btn" routerLink="/">Go to the quest board</a>
+          } @else {
+            <h1>That link did not work</h1>
+            <p class="alert" role="alert">{{ error() }}</p>
+            <p class="lede">Sign in and press “Resend link” to get a fresh one.</p>
+            <a class="btn" routerLink="/">Go to the quest board</a>
+          }
+        </div>
+      }
+    }
+  </section>
+</main>

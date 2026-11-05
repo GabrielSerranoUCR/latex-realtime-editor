@@ -1,0 +1,25 @@
+:host { display: contents; }
+.role { max-width: 190px; }
+.eyebrow-ink { margin: 6px 0 0; font: 700 13px var(--font-heading); letter-spacing: 0.16em; text-transform: uppercase; color: var(--brass-700); }
+.people { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 12px; li { display: flex; align-items: center; gap: 14px; } }
+.av { width: 38px; height: 38px; border-radius: 50%; display: grid; place-content: center; font: 700 13px var(--font-heading); color: var(--ink-900); border: 2px solid var(--wood-900); flex: none; }
+.who { flex: 1; display: flex; flex-direction: column; min-width: 0; b { font: 700 16px var(--font-heading); } small { font-style: italic; color: var(--ink-600); overflow: hidden; text-overflow: ellipsis; } }
+.mini { font: 700 13px var(--font-heading); background: var(--parchment-200); border: 2px solid var(--brass-700); border-radius: 4px; padding: 4px 8px; color: var(--ink-900); }
+.danger { color: var(--wine-500); font-size: 15px; }
+.notice { margin: 0; padding: 8px 12px; border-radius: 4px; background: rgb(111 143 78 / 0.15); border: 1px solid var(--ale-500); color: var(--ink-900); font-weight: 600; }
+.ghost { background: var(--parchment-300); border-style: dashed; }
+/* the email box, the role dropdown and the Invite button stand at one height */
+.row input, .row select, .row .btn { box-sizing: border-box; height: 46px; line-height: 1.2; }
+.row select { padding-top: 0; padding-bottom: 0; }
+
+.links { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 14px;
+  li { display: flex; flex-direction: column; gap: 6px; align-items: flex-start; }
+  .lhead { display: flex; flex-direction: column; b { font: 700 16px var(--font-heading); } small { font-style: italic; color: var(--ink-600); } }
+  .lrow { display: flex; gap: 8px; width: 100%; }
+  .url { flex: 1; min-width: 0; box-sizing: border-box; height: 38px; padding: 0 10px; font: 400 14px var(--font-mono); color: var(--ink-900); background: var(--parchment-200); border: 2px solid var(--brass-700); border-radius: 4px; }
+  .lrow .btn { height: 38px; box-sizing: border-box; }
+  .lact { display: flex; gap: 18px; } }
+
+.asks li { align-items: flex-start; flex-wrap: wrap; }
+.asks q { display: block; margin-top: 2px; font: italic 15px var(--font-body); color: var(--ink-600); quotes: '“' '”'; overflow-wrap: anywhere; }
+.grant { display: inline-flex; align-items: center; gap: 8px; }

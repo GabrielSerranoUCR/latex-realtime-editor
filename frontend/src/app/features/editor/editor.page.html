@@ -1,0 +1,216 @@
+<div class="screen wood-bg">
+  <header class="beam">
+    <a class="back" routerLink="/" aria-label="Back to the quest board" title="Back to the quest board">←</a>
+    <div class="doc">
+      <h1>{{ scroll()?.title ?? '…' }}@if (role(); as r) { <span class="chip" [class.chip--ok]="r === 'owner'" [class.chip--idle]="r !== 'owner'">{{ r }}</span> }</h1>
+      <p class="state" [class.off]="offline()">
+        @switch (collab.status()) {
+          @case ('connected') { <span class="dot ok"></span> {{ collab.synced() ? 'Saved to the cellar · all scribes in sync' : 'Joining the table…' }} }
+          @case ('connecting') { <span class="dot"></span> Finding the table… }
+          @default { <span class="dot bad"></span> Offline · edits are kept safe on this device }
+        }
+      </p>
+    </div>
+
+    <div class="panels" role="group" aria-label="Panels">
+      <button class="chipbtn" type="button" (click)="openPalette()" title="Command menu (⌘K or Ctrl+K)" aria-label="Open the command menu" aria-keyshortcuts="Control+K Meta+K">⌘K</button>
+      <qq-panels-menu [visible]="layout.visible()" [popped]="layout.popped()" [hasSaved]="layout.hasSaved()" (toggle)="onPanelToggle($event)" (popOut)="onPopOut($event)" (reset)="resetLayout()" (save)="saveLayout()" />
+      <button class="chipbtn" [class.on]="showComments()" (click)="toggleComments()" type="button" title="Margin notes: talk about the text, right where it is (Ctrl/⌘+Alt+M)">Notes@if (comments.openCount() > 0) { <span class="count-badge" aria-label="{{ comments.openCount() }} open">{{ comments.openCount() }}</span> }</button>
+      <button class="chipbtn" [class.on]="showHistory()" (click)="toggleHistory()" type="button" title="Browse earlier versions of this scroll">History</button>
+      <button class="chipbtn" (click)="modals.openSettings()" type="button" title="Tavern settings: compiler, editor and collaboration">Settings</button>
+      <a class="chipbtn" [routerLink]="['/scroll', id(), 'hall']" title="See every file seated at its table">Tavern Hall</a>
+    </div>
+
+    <span class="sp"></span>
+
+    <ul class="presence" aria-label="Scribes at the table">
+      @for (p of everyone(); track p.clientId) {
+        <li [style.background]="p.user.color" [title]="p.user.name + (p.clientId === -1 ? ' (you)' : '')">{{ initials(p.user.name) }}</li>
+      }
+    </ul>
+    <span class="count">{{ everyone().length }} {{ everyone().length === 1 ? 'scribe' : 'scribes' }} at the table</span>
+
+    <button class="me-btn" type="button" (click)="modals.openProfile()" [style.background]="collab.me().color" aria-label="Your tavern profile" title="Your tavern profile">{{ meInitials() }}</button>
+    <button class="btn btn--ghost" type="button" data-tour="share" (click)="openShare()">Share</button>
+    <button class="btn btn--ember" type="button" data-tour="compile" (click)="compile()" [disabled]="!canEdit() || compiler.state() === 'compiling' || !collab.files().length" [title]="canEdit() ? '' : 'Readers cannot compile'">
+      {{ compiler.state() === 'compiling' ? 'Compiling…' : 'Compile' }}
+    </button>
+  </header>
+
+  <qq-menubar [menus]="menus()" />
+
+  <qq-verify-banner />
+
+  @if (scroll() && !canEdit()) {
+    <div class="banner banner--read" role="status">
+      <b>You are a Reader at this table.</b>
+      <span>You can look and download, but not edit or compile.</span>
+    </div>
+  }
+
+  @if (offline()) {
+    <div class="banner" role="alert">
+      <b>The raven lost its way — you are offline.</b>
+      <span>Edits are kept safe on this device and will sync when you reconnect.</span>
+    </div>
+  }
+
+  <main #workspace class="workspace" [style.grid-template-columns]="grid().columns" [style.grid-template-rows]="grid().rows" [style.grid-template-areas]="grid().areas">
+    @if (layout.visible().tree) {
+      <qq-file-tree
+        data-tour="hall"
+        class="panel tree"
+        [files]="collab.files()"
+        [assets]="collab.assets()"
+        [folders]="collab.tables()"
+        (createFolder)="onCreateFolder($event)"
+        (removeFolder)="collab.removeTable($event)"
+        [canEdit]="canEdit()"
+        [uploading]="uploading()"
+        [uploadMessage]="uploadMessage()"
+        [active]="activeAsset() ?? collab.activeFile()"
+        [main]="collab.mainFile()"
+        [createError]="createError()"
+        (select)="openText($event)"
+        (selectAsset)="openAsset($event)"
+        (removeAsset)="removeAsset($event)"
+        (upload)="upload($event)"
+        [hallLink]="['/scroll', id(), 'hall']"
+        (create)="onCreate($event)"
+        (remove)="collab.deleteFile($event)"
+      />
+    } @else {
+      <nav class="panel rail tree" aria-label="Tavern Hall, collapsed">
+        <button type="button" class="rail-btn" title="Show the Tavern Hall panel" aria-label="Show the Tavern Hall panel" (click)="layout.setVisible('tree', true)">›</button>
+        <a class="rail-btn" [routerLink]="['/scroll', id(), 'hall']" title="Open the full Tavern Hall" aria-label="Open the full Tavern Hall">⌂</a>
+      </nav>
+    }
+    @if (grid().handles.tree) {
+      <qq-resize-handle class="ht" orientation="col" label="Resize the Tavern Hall panel" [value]="layout.sizes().treeW" [min]="layout.limits('treeW')[0]" [max]="layout.limits('treeW')[1]" [sign]="1" (resize)="layout.setSize('treeW', $event)" (reset)="resetSize('treeW')" />
+    }
+
+    @if (layout.visible().source) {
+      <section class="panel editor" data-tour="desk" [class.dropping]="editorDrag()" aria-label="Source" (dragover)="onEditorDragOver($event)" (dragleave)="onEditorDragLeave($event)" (drop)="onEditorDrop($event)">
+        @if (viewing(); as v) {
+          <qq-diff-view [viewed]="v" [now]="nowFiles()" (back)="backToNow()" (refresh)="compareAgain()" />
+        } @else {
+          <div class="tabs">
+            <span class="tab">{{ collab.activeFile() ?? '…' }}</span>
+            @if (canEdit()) { <button class="tool" type="button" (click)="openInsert()" title="Insert an image or PDF at the cursor">Insert image</button> }
+          </div>
+          @if (collab.activeText(); as text) {
+            <qq-code-editor [ytext]="text" [awareness]="collab.awareness()!" [project]="collab.project" [readonly]="!canEdit()" [notes]="noteMarks()" [errorLines]="errorLines()" [searchMarks]="searchMarksHere()" (searchRequest)="openSearch($event)" (searchStep)="stepSearch($event)" (cursor)="cursor.set($event)" (noteClick)="focusNote($event)" (noteShortcut)="newNote()" />
+          } @else {
+            <p class="placeholder">{{ collab.synced() ? 'This scroll has no files yet.' : 'Waiting for the table…' }}</p>
+          }
+        }
+        <footer class="status">
+          <span>Ln {{ cursor().line }}, Col {{ cursor().col }}</span><span>LaTeX</span><span>UTF-8</span>
+          <span class="sp"></span>
+          <span [class.ok]="collab.status() === 'connected'" [class.bad]="offline()">● {{ collab.status() === 'connected' ? 'Connected · Yjs sync' : offline() ? 'Offline · saved locally' : 'Connecting…' }}</span>
+        </footer>
+      </section>
+    }
+    @if (grid().handles.right) {
+      <qq-resize-handle class="hp" orientation="col" label="Resize the preview panel" [value]="layout.sizes().previewW" [min]="layout.limits('previewW')[0]" [max]="layout.limits('previewW')[1]" [sign]="-1" (resize)="layout.setSize('previewW', $event)" (reset)="resetSize('previewW')" />
+    }
+
+    @if (rightDock()) {
+      @if (showComments()) {
+        <qq-comments-panel
+          class="panel preview"
+          [threads]="comments.located()"
+          [activeFile]="collab.activeFile()"
+          [selectedId]="selectedNote()"
+          [cursorLine]="cursor().line"
+          [hasSelection]="cursor().sel > 0"
+          [meId]="auth.user()?.id ?? null"
+          [meName]="collab.me().name"
+          [canWrite]="canEdit()"
+          [canManage]="isOwner()"
+          [names]="memberNames()"
+          (closed)="toggleComments(false)"
+          (select)="openNote($event)"
+          (post)="postNote($event)"
+          (reply)="replyNote($event)"
+          (resolve)="comments.setResolved($event.id, $event.resolved)"
+          (removeMessage)="comments.removeMessage($event.id, $event.messageId)"
+          (removeThread)="comments.removeThread($event, isOwner())"
+        />
+      } @else if (showHistory() && scroll(); as sc) {
+        <qq-history-panel class="panel preview" [scrollId]="sc.id" [canEdit]="canEdit()" [meId]="auth.user()?.id ?? null" (closed)="toggleHistory()" (view)="onView($event)" />
+      } @else if (assetInfo(); as a) {
+        <qq-portrait-panel
+          class="preview"
+          [scrollId]="scroll()!.id"
+          [asset]="a"
+          [canEdit]="canEdit()"
+          [error]="portraitError()"
+          (closed)="activeAsset.set(null)"
+          (insert)="openInsert($event)"
+          (replace)="replaceAsset($event)"
+          (remove)="removeAsset($event)"
+        />
+      } @else if (layout.popped().preview) {
+        <section class="panel preview away" aria-label="Scroll Preview is in its own window">
+          <span class="away-ico" aria-hidden="true">⧉</span>
+          <h2>Scroll Preview is open in another window</h2>
+          <p>It stays in sync and recompiles with every change.</p>
+          <button type="button" class="btn btn--ghost" (click)="popout.dock('preview')">Bring it back</button>
+        </section>
+      } @else {
+        <qq-pdf-preview class="panel preview" [pdfUrl]="compiler.pdfUrl()" [state]="compiler.state()" [stale]="compiler.stale()" (popOut)="onPopOut('preview')" (hide)="layout.setVisible('preview', false)" />
+      }
+    }
+    @if (grid().empty) {
+      <section class="panel empty-hint" role="status">
+        <h2>Every panel is tucked away</h2>
+        <p>Open the <b>Panels</b> menu above to bring one back, or reset the layout.</p>
+        <button type="button" class="btn btn--ghost" (click)="resetLayout()">Reset to default layout</button>
+      </section>
+    }
+
+    @if (layout.visible().log) {
+      @if (grid().handles.log) {
+        <qq-resize-handle class="hl row-handle" orientation="row" label="Resize the ink log" [value]="layout.sizes().logH" [min]="layout.limits('logH')[0]" [max]="layout.limits('logH')[1]" [sign]="-1" (resize)="layout.setSize('logH', $event)" (reset)="resetSize('logH')" />
+      }
+      @if (layout.popped().log) {
+        <section class="panel log away-row" aria-label="Ink Log is in its own window">
+          <span aria-hidden="true">⧉</span>
+          <span>Ink Log is open in another window.</span>
+          <button type="button" class="btn btn--ghost btn--sm" (click)="popout.dock('log')">Bring it back</button>
+        </section>
+      } @else {
+        <qq-ink-log class="panel log" [showWarnings]="prefs.prefs().showWarnings" [state]="compiler.state()" [result]="compiler.result()" [fatalError]="compiler.fatalError()" (jump)="jump($event)" (popOut)="onPopOut('log')" (hide)="layout.setVisible('log', false)" />
+      }
+    }
+  </main>
+
+  @if (toast(); as t) {
+    <div class="toast" [class.bad]="t.bad" [attr.role]="t.bad ? 'alert' : 'status'">{{ t.text }}</div>
+  }
+</div>
+
+@if (scroll(); as sc) {
+  <input #zipInput type="file" accept=".zip,application/zip" hidden (change)="onZip(zipInput)" />
+  <qq-import-dialog [scrollId]="sc.id" />
+  <dialog class="modal" #renameDlg aria-labelledby="renH">
+    <form class="parchment" (submit)="saveTitle($event)">
+      <h2 id="renH">Rename scroll</h2>
+      <label class="field"><span>Name</span><input name="title" maxlength="120" autocomplete="off" [value]="renameValue()" (input)="renameValue.set($any($event.target).value)" /></label>
+      @if (renameError(); as e) { <p class="alert" role="alert">{{ e }}</p> }
+      <div class="actions"><button class="btn btn--ink" type="button" (click)="renameDlg.close()">Cancel</button><button class="btn" type="submit">Rename</button></div>
+    </form>
+  </dialog>
+  <qq-ai-dialog [scrollId]="sc.id" [role]="role()" [mode]="sc.aiEditMode ?? 'review'" (modeChange)="reloadScroll()" />
+  <qq-share-dialog [scrollId]="sc.id" [title]="sc.title" [role]="role()" [meId]="auth.user()?.id ?? null" />
+  <qq-insert-image-dialog [scrollId]="sc.id" [assets]="collab.assets()" [where]="insertWhere()" [source]="mainSource()" (insert)="insertSnippet($event)" (finished)="nextInsert()" />
+}
+<qq-command-palette [items]="paletteItems()" />
+<qq-tour [canEdit]="canEdit()" />
+@if (searchOpen()) {
+  <qq-search-panel [canEdit]="canEdit()" [prefill]="searchPrefill()" [focusKey]="searchFocus()" (jump)="onSearchJump($event)" (closed)="closeSearch()" />
+}
+<qq-rec-pill />
+<qq-timelapse />
+<input #sessionInput type="file" accept=".quillsession,application/octet-stream" hidden (change)="onSession(sessionInput)" />

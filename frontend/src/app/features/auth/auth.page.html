@@ -1,0 +1,61 @@
+<main class="door wood-bg">
+  <section class="hanging-sign" aria-hidden="false">
+    <div class="chains"><i></i><i></i></div>
+    <div class="board">
+      <div class="est">~ EST. IN THE YEAR OF THE QUILL ~</div>
+      <h1>THE GILDED QUILL</h1>
+      <p>A tavern for LaTeX scribes.<br />Draft together. Compile by candlelight.</p>
+    </div>
+    <ul class="perks">
+      <li><span class="coin">✎</span> Scribe together in real time</li>
+      <li><span class="coin">⚒</span> Inked by the Tectonic engine</li>
+      <li><span class="coin">❦</span> Preview your finished scroll as PDF</li>
+    </ul>
+  </section>
+
+  <form class="parchment card" (submit)="submit($event)" novalidate>
+    <h1>{{ isSignup() ? 'Join the Guild' : 'Enter the Tavern' }}</h1>
+    <p class="lede">{{ isSignup() ? 'Forge an account and start drafting together.' : 'Sign in to rejoin your fellow scribes.' }}</p>
+
+    <nav class="tabs" aria-label="Sign in or sign up">
+      <a routerLink="/login" [queryParams]="queryParams()" [class.on]="!isSignup()">Sign in</a>
+      <a routerLink="/signup" [queryParams]="queryParams()" [class.on]="isSignup()">Sign up</a>
+    </nav>
+
+    @if (isSignup()) {
+      <label class="field">
+        <span>Display name</span>
+        <input name="name" autocomplete="name" placeholder="Sir Lancelot of TeX" [(ngModel)]="displayName" required maxlength="60" />
+      </label>
+    }
+    <label class="field">
+      <span>Email</span>
+      <input name="email" type="email" autocomplete="email" placeholder="you@guild.com" [(ngModel)]="email" required />
+    </label>
+    <label class="field">
+      <span>Password</span>
+      <input name="password" type="password" [attr.autocomplete]="isSignup() ? 'new-password' : 'current-password'" placeholder="{{ isSignup() ? 'At least 10 characters' : '••••••••••' }}" [(ngModel)]="password" required />
+    </label>
+
+    @if (error(); as e) {
+      <p class="alert" role="alert">{{ e }}</p>
+    }
+
+    <button class="btn" type="submit" [disabled]="busy()">
+      {{ busy() ? 'One moment…' : isSignup() ? 'Create account' : 'Sign in' }}
+    </button>
+
+    @if (!isSignup()) {
+      <button class="btn btn--ink magic" type="button" (click)="magic()" [disabled]="busy()">✦ Email me a magic link</button>
+      <p class="forgot"><a routerLink="/forgot-password">Forgot your password?</a></p>
+    }
+
+    <p class="foot">
+      @if (isSignup()) {
+        By joining you agree to the Tavern Rules.
+      } @else {
+        New to the tavern? <a routerLink="/signup" [queryParams]="queryParams()">Take a seat and sign up.</a>
+      }
+    </p>
+  </form>
+</main>

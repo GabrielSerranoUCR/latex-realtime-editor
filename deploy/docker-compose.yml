@@ -1,0 +1,62 @@
+# The Gilded Quill on a Docker host managed by Coolify (or plain `docker compose up -d`).
+#
+# The two application images come from GitHub's container registry (private): the pipeline pushes them, and only
+# this server pulls them, signed in to ghcr.io with its own read-only token. See deploy/README.md.
+#
+# Settings are read from the environment (in Coolify: the resource's Environment Variables); see deploy/.env.example.
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: quill
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}
+      POSTGRES_DB: quill
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U quill -d quill"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  backend:
+    image: ${IMAGE_REPO:?set IMAGE_REPO, e.g. ghcr.io/owner/repo}/backend:${IMAGE_TAG:-latest}
+    pull_policy: always # a redeploy fetches whatever the tag points to now
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      QUILL_DATABASE_URL: postgres://quill:${POSTGRES_PASSWORD}@db:5432/quill
+      # the public address people use, with https:// (it is checked against every browser request and put in emailed links)
+      QUILL_ALLOWED_ORIGIN: ${QUILL_ALLOWED_ORIGIN:?set QUILL_ALLOWED_ORIGIN, e.g. https://quill.example.com}
+      QUILL_PUBLIC_URL: ${QUILL_PUBLIC_URL:-${QUILL_ALLOWED_ORIGIN}}
+      QUILL_COOKIE_SECURE: "true"
+      # the proxy in front (Coolify's) tells the server the visitor's address
+      QUILL_TRUST_PROXY: "true"
+      QUILL_SMTP_URL: ${QUILL_SMTP_URL:-}
+      QUILL_MAIL_FROM: ${QUILL_MAIL_FROM:-The Gilded Quill <noreply@localhost>}
+      QUILL_COMPILE_WORKERS: ${QUILL_COMPILE_WORKERS:-2}
+      QUILL_SESSION_DAYS: ${QUILL_SESSION_DAYS:-30}
+    volumes:
+      - quill-data:/data # pictures, PDFs and stored documents
+      - tectonic-cache:/cache # the TeX files Tectonic downloads on first use (kept across redeploys)
+    # no ports: only the frontend talks to it
+
+  frontend:
+    image: ${IMAGE_REPO:?set IMAGE_REPO, e.g. ghcr.io/owner/repo}/frontend:${IMAGE_TAG:-latest}
+    pull_policy: always
+    restart: unless-stopped
+    depends_on:
+      - backend
+    environment:
+      BACKEND_URL: http://backend:8080
+    # nginx listens on 8080: give THIS service your domain in Coolify (port 8080)
+    expose:
+      - "8080"
+
+volumes:
+  db-data:
+  quill-data:
+  tectonic-cache:

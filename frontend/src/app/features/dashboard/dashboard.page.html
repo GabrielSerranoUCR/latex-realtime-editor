@@ -1,0 +1,100 @@
+<div class="screen wood-bg">
+  <header class="beam">
+    <span class="logo">THE GILDED QUILL</span>
+    <span class="sp"></span>
+    <button class="who" type="button" (click)="modals.openProfile()" title="Your tavern profile" aria-label="Your tavern profile"><i class="dot" [style.background]="auth.user()?.color"></i>{{ auth.user()?.displayName }}</button>
+    <button class="btn btn--ghost btn--sm" type="button" (click)="signOut()">Sign out</button>
+  </header>
+
+  <qq-verify-banner />
+
+  <main class="board">
+    <div class="head">
+      <div>
+        <h1>Your Scrolls</h1>
+        <p class="sub">The quest board of every document you scribe.</p>
+      </div>
+      <div class="acts">
+        <input #zip class="sr" type="file" accept=".zip,application/zip" tabindex="-1" aria-hidden="true" (change)="importZip(zip)" />
+        <button class="btn btn--ghost" type="button" [disabled]="busy()" (click)="pickZip(zip)">Import scroll (.zip)</button>
+        <button class="btn" type="button" (click)="openNew()">+ New Scroll</button>
+      </div>
+    </div>
+
+    @if (invites().length) {
+      <section class="invites" aria-label="Invitations">
+        <h2>Invitations</h2>
+        @for (i of invites(); track i.id) {
+          <div class="invite">
+            <span><b>{{ i.inviterName }}</b> invited you to <b>{{ i.scrollTitle }}</b> as a {{ i.role }}</span>
+            <button class="btn btn--sm" type="button" (click)="acceptInvite(i)">Join</button>
+            <button class="btn btn--sm btn--ghost" type="button" (click)="declineInvite(i)">Decline</button>
+          </div>
+        }
+      </section>
+    }
+
+    <nav class="filters" aria-label="Filter scrolls">
+      <button type="button" [class.on]="filter() === 'all'" (click)="filter.set('all')">All</button>
+      <button type="button" [class.on]="filter() === 'mine'" (click)="filter.set('mine')">Mine</button>
+      <button type="button" [class.on]="filter() === 'shared'" (click)="filter.set('shared')">Shared</button>
+    </nav>
+
+    @if (error(); as e) { <p class="alert" role="alert">{{ e }}</p> }
+
+    @if (scrolls() === null) {
+      <div class="grid" aria-busy="true"><div class="skeleton"></div><div class="skeleton"></div><div class="skeleton"></div></div>
+    } @else if (!visible().length) {
+      <div class="empty">
+        <h2>{{ scrolls()!.length ? 'No scrolls here' : 'The quest board is bare' }}</h2>
+        <p>{{ scrolls()!.length ? 'Try another filter.' : 'You have no scrolls yet. Start a new one to begin writing.' }}</p>
+        @if (!scrolls()!.length) { <button class="btn" type="button" (click)="openNew()">+ New Scroll</button> }
+      </div>
+    } @else {
+      <ul class="grid">
+        @for (s of visible(); track s.id) {
+          <li class="card parchment">
+            <a class="open" [routerLink]="['/scroll', s.id]" [attr.aria-label]="'Open ' + s.title">
+              <h2>{{ s.title }}</h2>
+              <p class="meta">Edited {{ ago(s.updatedAt) }} · {{ s.memberCount }} {{ s.memberCount === 1 ? 'scribe' : 'scribes' }}</p>
+              <p class="meta">By {{ s.ownerName }}</p>
+            </a>
+            <div class="foot">
+              <span class="chip" [class.chip--ok]="s.role === 'owner'" [class.chip--idle]="s.role !== 'owner'">{{ s.role }}</span>
+              @if (s.role === 'owner') {
+                <button class="link danger" type="button" (click)="askDelete(s)" [attr.aria-label]="'Delete ' + s.title">Delete</button>
+              }
+            </div>
+          </li>
+        }
+      </ul>
+    }
+  </main>
+</div>
+
+<dialog class="modal" #newDialog aria-labelledby="newTitleH">
+  <form class="parchment" (submit)="create($event)">
+    <h2 id="newTitleH">Start a New Scroll</h2>
+    <p class="lede">Give it a name. You can invite other scribes afterwards.</p>
+    <label class="field">
+      <span>Scroll name</span>
+      <input name="title" [(ngModel)]="newTitle" placeholder="Thesis – Chapter 4" maxlength="120" required autofocus />
+    </label>
+    @if (dialogError(); as e) { <p class="alert" role="alert">{{ e }}</p> }
+    <div class="actions">
+      <button class="btn btn--ink" type="button" (click)="newDialog.close()">Cancel</button>
+      <button class="btn" type="submit" [disabled]="busy() || !newTitle().trim()">{{ busy() ? 'Creating…' : 'Create scroll' }}</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog class="modal" #deleteDialog aria-labelledby="delH">
+  <div class="parchment">
+    <h2 id="delH">Delete this scroll?</h2>
+    <p class="lede">“{{ toDelete()?.title }}” and all of its files will be removed for every scribe.</p>
+    <div class="actions">
+      <button class="btn btn--ink" type="button" (click)="deleteDialog.close()">Keep it</button>
+      <button class="btn btn--danger" type="button" (click)="confirmDelete()">Delete scroll</button>
+    </div>
+  </div>
+</dialog>
