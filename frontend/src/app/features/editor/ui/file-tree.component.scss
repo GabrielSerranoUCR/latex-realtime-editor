@@ -1,0 +1,35 @@
+:host { display: flex; flex-direction: column; min-height: 0; padding: 14px 10px; gap: 8px; overflow: auto; }
+.head { display: flex; align-items: center; justify-content: space-between; padding: 0 4px; }
+.icon { background: transparent; border: 1px solid var(--brass-700); color: var(--text-1); border-radius: 4px; width: 24px; height: 24px; cursor: pointer; line-height: 1; }
+ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+li { font-family: var(--font-mono); font-size: 14px; border-radius: 3px; padding: 7px 10px; display: flex; align-items: center; gap: 8px; }
+li.dir { color: var(--text-3); }
+li.file { cursor: pointer; border: 1px solid transparent; &:hover { background: rgb(var(--glow-rgb) / 0.06); } }
+li.file.active { background: rgb(var(--brass-rgb) / 0.22); border-color: var(--brass-500); color: var(--candle-400); }
+.ico { color: var(--brass-500); width: 14px; text-align: center; }
+.nm { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.del { visibility: hidden; background: none; border: 0; color: var(--text-3); cursor: pointer; font-size: 16px; }
+li.file:hover .del, li.file:focus-within .del { visibility: visible; }
+.add { display: flex; flex-direction: column; gap: 4px; }
+.add input { font-family: var(--font-mono); font-size: 13px; padding: 6px 8px; background: var(--wood-900); border: 2px solid var(--brass-700); border-radius: 4px; color: var(--text-1); }
+.err { color: var(--ember-500); font-style: italic; }
+
+.tools { display: flex; gap: 6px; }
+.busy { color: var(--candle-400); font-style: italic; }
+.size { color: var(--text-3); font-size: 11px; }
+li.asset .ico { color: var(--ale-500); }
+:host { position: relative; border-radius: 6px; }
+:host(.dragging) { outline: 2px dashed var(--candle-400); outline-offset: -4px; background: rgb(var(--glow-rgb) / 0.08); }
+:host(.dragging)::after { content: 'Drop images or PDFs to seat them in the hall'; position: absolute; inset: auto 12px 12px; padding: 8px 10px; text-align: center; font: 700 13px var(--font-heading); color: var(--ink-900); background: var(--candle-400); border-radius: 4px; pointer-events: none; }
+
+.hall { margin-top: auto; text-align: center; text-decoration: none; font: 700 13px var(--font-heading); text-transform: uppercase; letter-spacing: 0.04em; padding: 9px 10px; color: var(--text-1); border: 2px solid var(--brass-700); border-radius: 4px; &:hover { background: rgb(var(--glow-rgb) / 0.12); border-color: var(--brass-500); } }
+
+.actions { display: flex; gap: 6px; padding: 0 4px; }
+.act { flex: 1; font: 700 12px var(--font-heading); padding: 5px 8px; background: transparent; color: var(--text-1); border: 1px solid var(--brass-700); border-radius: 4px; cursor: pointer; &:hover { background: rgb(var(--glow-rgb) / 0.12); border-color: var(--brass-500); } &.on { background: rgb(var(--brass-rgb) / 0.28); border-color: var(--brass-500); color: var(--candle-400); } span { color: var(--brass-500); } }
+.add.folder { gap: 6px; .in { display: flex; flex-direction: column; gap: 3px; span { font: 700 11px var(--font-heading); letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-3); } select { font: 13px var(--font-body); padding: 5px 6px; background: var(--wood-900); color: var(--text-1); border: 2px solid var(--brass-700); border-radius: 4px; } } .row { display: flex; gap: 6px; } }
+.dirbtn { visibility: hidden; background: none; border: 0; padding: 0 4px; color: var(--text-3); cursor: pointer; font-size: 15px; line-height: 1; &:hover { color: var(--candle-400); } }
+li.dir:hover .dirbtn, li.dir:focus-within .dirbtn { visibility: visible; }
+li.dir { cursor: pointer; &:focus-visible { outline: 2px solid var(--candle-400); outline-offset: -2px; } .caret { display: inline-block; width: 1em; } }
+.add .path { display: flex; gap: 4px; min-width: 0; input { min-width: 0; } .locked { flex: 0 1 auto; width: auto; max-width: 55%; field-sizing: content; opacity: 0.65; cursor: not-allowed; } input:not(.locked) { flex: 1; } }
+.rm-box { min-width: min(420px, 86vw); h2 { font-size: 22px; overflow-wrap: anywhere; } .rm-actions { display: flex; justify-content: flex-end; gap: 12px; } code { font-family: var(--font-mono); }
+}

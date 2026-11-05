@@ -1,0 +1,112 @@
+<dialog class="modal" #dlg aria-labelledby="shareH">
+  <div class="parchment">
+    <h2 id="shareH">Invite Scribes to the Table</h2>
+    <p class="lede">Share “{{ title() }}” with your fellow writers.</p>
+
+    @if (canManage()) {
+      <form class="row" (submit)="invite($event)">
+        <label class="field">
+          <span>Invite by email (no account needed)</span>
+          <input name="email" type="email" placeholder="name@guild.com" [(ngModel)]="email" required />
+        </label>
+        <label class="field role">
+          <span>Role</span>
+          <select name="role" [ngModel]="inviteRole()" (ngModelChange)="inviteRole.set($event)">
+            <option value="scribe">Scribe (can edit)</option>
+            <option value="reader">Reader (view only)</option>
+          </select>
+        </label>
+        <button class="btn" type="submit" [disabled]="busy() || !email().trim()">Invite</button>
+      </form>
+    } @else {
+      <p class="lede">Only the owner can add or remove people.</p>
+    }
+
+    @if (notice(); as n) { <p class="notice" role="status">{{ n }}</p> }
+    @if (error(); as e) { <p class="alert" role="alert">{{ e }}</p> }
+
+    @if (canManage() && requests().length) {
+      <h3 class="eyebrow-ink">Asking for a seat</h3>
+      <ul class="people asks">
+        @for (r of requests(); track r.userId) {
+          <li>
+            <span class="av ghost" aria-hidden="true">{{ initials(r.displayName) }}</span>
+            <span class="who">
+              <b>{{ r.displayName }}</b>
+              <small>{{ r.email }}</small>
+              @if (r.message) { <q>{{ r.message }}</q> }
+            </span>
+            <span class="grant">
+              <button class="btn btn--sm" type="button" (click)="grant(r, 'scribe')" [attr.aria-label]="'Give ' + r.displayName + ' a seat as a scribe'">Scribe</button>
+              <button class="btn btn--sm btn--ink" type="button" (click)="grant(r, 'reader')" [attr.aria-label]="'Give ' + r.displayName + ' a seat as a reader'">Reader</button>
+              <button class="link danger" type="button" (click)="turnAway(r)" [attr.aria-label]="'Decline ' + r.displayName">Decline</button>
+            </span>
+          </li>
+        }
+      </ul>
+    }
+
+    @if (canManage()) {
+      <h3 class="eyebrow-ink">Share links</h3>
+      <ul class="links">
+        @for (r of linkRows; track r.role) {
+          <li>
+            <div class="lhead"><b>{{ r.title }}</b><small>{{ r.blurb }}</small></div>
+            @if (linkFor(r.role); as l) {
+              <div class="lrow">
+                <input #url class="url" readonly [value]="urlOf(l)" [attr.aria-label]="r.title" (focus)="url.select()" />
+                <button class="btn btn--sm" type="button" (click)="copy(l, url)">{{ copied() === r.role ? 'Copied ✓' : 'Copy' }}</button>
+              </div>
+              <div class="lact">
+                <button class="link" type="button" (click)="makeLink(r.role)" [attr.aria-label]="'Replace the ' + r.title.toLowerCase()">Replace with a new link</button>
+                <button class="link danger" type="button" (click)="stopLink(r.role)" [attr.aria-label]="'Turn off the ' + r.title.toLowerCase()">Turn off</button>
+              </div>
+            } @else {
+              <button class="btn btn--ink btn--sm" type="button" (click)="makeLink(r.role)">Create {{ r.title.toLowerCase() }}</button>
+            }
+          </li>
+        }
+      </ul>
+    }
+
+    <h3 class="eyebrow-ink">Scribes with access</h3>
+    <ul class="people">
+      @for (m of members(); track m.userId) {
+        <li>
+          <span class="av" [style.background]="m.color">{{ initials(m.displayName) }}</span>
+          <span class="who">
+            <b>{{ m.displayName }}@if (m.userId === meId()) { (you) }</b>
+            <small>{{ m.email }}</small>
+          </span>
+          @if (m.role === 'owner') {
+            <span class="chip chip--ok">owner</span>
+          } @else if (canManage()) {
+            <select class="mini" [attr.aria-label]="'Role of ' + m.displayName" [ngModel]="m.role" (ngModelChange)="changeRole(m, $event)">
+              <option value="scribe">scribe</option>
+              <option value="reader">reader</option>
+            </select>
+            <button class="link danger" type="button" (click)="remove(m)" [attr.aria-label]="'Remove ' + m.displayName">Remove</button>
+          } @else {
+            <span class="chip chip--idle">{{ m.role }}</span>
+            @if (m.userId === meId()) { <button class="link danger" type="button" (click)="remove(m)">Leave</button> }
+          }
+        </li>
+      }
+    </ul>
+
+    @if (pending().length) {
+      <h3 class="eyebrow-ink">Waiting for a reply</h3>
+      <ul class="people">
+        @for (p of pending(); track p.id) {
+          <li>
+            <span class="av ghost">✉</span>
+            <span class="who"><b>{{ p.email }}</b><small>invited as {{ p.role }}</small></span>
+            <button class="link danger" type="button" (click)="revoke(p)" [attr.aria-label]="'Withdraw invitation to ' + p.email">Withdraw</button>
+          </li>
+        }
+      </ul>
+    }
+
+    <div class="actions"><button class="btn" type="button" (click)="close()">Done</button></div>
+  </div>
+</dialog>

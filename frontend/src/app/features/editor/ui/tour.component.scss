@@ -1,0 +1,15 @@
+:host { display: contents; }
+/* Everything outside the lit-up part is dimmed and cannot be clicked while the tour is open. */
+.shield { position: fixed; inset: 0; z-index: 200; background: transparent; }
+.spot { position: fixed; z-index: 201; box-sizing: border-box; pointer-events: none; border: 4px dashed var(--candle-400); border-radius: 8px; box-shadow: 0 0 0 100vmax rgb(var(--backdrop-rgb) / 0.78); transition: left 0.25s ease, top 0.25s ease, width 0.25s ease, height 0.25s ease; }
+.arrow { position: fixed; z-index: 202; box-sizing: border-box; width: 18px; height: 18px; background: var(--parchment-100); border: 4px solid var(--wood-900); transform: rotate(45deg); pointer-events: none; transition: left 0.25s ease, top 0.25s ease; }
+.card { position: fixed; z-index: 203; box-sizing: border-box; width: min(360px, calc(100vw - 24px)); display: flex; flex-direction: column; gap: 12px; padding: 22px; background: var(--parchment-100); color: var(--ink-900); border: 5px solid var(--wood-900); border-radius: 10px; box-shadow: 0 14px 28px rgb(0 0 0 / 0.6); transition: left 0.25s ease, top 0.25s ease;
+  header { display: flex; align-items: center; gap: 8px; justify-content: space-between; }
+  .step { font: 700 12px var(--font-heading); letter-spacing: 2px; text-transform: uppercase; color: var(--brass-700); }
+  .skip, .back { background: none; border: 0; padding: 0; cursor: pointer; font: 600 15px var(--font-body); color: var(--ink-600); &:hover { color: var(--ink-900); text-decoration: underline; } }
+  h2 { margin: 0; font: 700 22px var(--font-heading); color: var(--ink-900); }
+  p { margin: 0; font: 400 17px/1.3 var(--font-body); color: var(--ink-600); }
+  footer { display: flex; align-items: center; gap: 12px; .sp { flex: 1; } }
+  .dots { display: inline-flex; align-items: center; gap: 6px; i { display: block; width: 8px; height: 8px; border-radius: 4px; background: rgb(var(--brass7-rgb) / 0.35); transition: width 0.2s; &.on { width: 18px; background: var(--brass-700); } } }
+  .btn { font-size: 13px; padding: 8px 14px; min-height: 36px; background: var(--brass-500); border: 2px solid var(--brass-700); color: var(--ink-900); } }
+@media (prefers-reduced-motion: reduce) { .spot, .arrow, .card, .dots i { transition: none; } }

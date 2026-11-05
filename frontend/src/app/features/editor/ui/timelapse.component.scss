@@ -1,0 +1,17 @@
+:host { display: contents; }
+dialog.modal { width: min(900px, calc(100vw - 24px)); max-width: none; }
+.box { box-sizing: border-box; padding: 18px 24px 16px; max-height: calc(100vh - 32px); overflow: auto; display: flex; flex-direction: column; gap: 8px; }
+header { display: flex; align-items: flex-start; gap: 14px; .ttl { flex: 1; min-width: 0; h2 { margin: 0; font: 700 24px var(--font-heading); overflow-wrap: anywhere; } .lede { margin: 4px 0 0; font-size: 16px; } } }
+.x { background: none; border: 0; font-size: 20px; color: var(--ink-600); cursor: pointer; padding: 2px 6px; }
+.tabs { display: flex; gap: 6px; flex-wrap: nowrap; overflow-x: auto; min-height: 30px; padding-bottom: 2px;
+  button { flex: none; padding: 3px 12px; border-radius: 4px 4px 0 0; background: var(--parchment-200); color: var(--ink-900); border: 1px solid var(--brass-700); font: 400 13px var(--font-mono); cursor: pointer; &.on { background: var(--ink-900); color: var(--candle-400); } &:focus-visible { outline: 2px solid var(--candle-400); } }
+  .none { font-style: italic; color: var(--ink-600); } }
+.code { margin: 0; padding: 12px 0; overflow: hidden; background: var(--wood-900); color: var(--text-1); border: 2px solid var(--brass-700); border-radius: 4px; font: 400 14px/22px var(--font-mono); height: calc(24 * 22px + 24px); tab-size: 4;
+  .row { display: block; min-height: 22px; white-space: pre; }
+  .ln { display: inline-block; width: 3.4em; padding-right: 1em; text-align: right; color: var(--text-3); user-select: none; }
+  mark { background: rgb(var(--glow-rgb) / 0.45); color: inherit; box-shadow: 0 0 0 1px var(--candle-400); border-radius: 2px; } }
+.more { margin: 0; font: italic 14px var(--font-body); color: var(--ink-600); text-align: right; }
+.bar { display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+  input[type='range'] { flex: 1; min-width: 160px; accent-color: var(--brass-700); }
+  .clock { font: 600 14px var(--font-mono); color: var(--ink-900); min-width: 9.5em; text-align: center; }
+  .speed { display: inline-flex; align-items: center; gap: 6px; font: 700 12px var(--font-heading); color: var(--ink-900); select { font: 400 14px var(--font-body); padding: 3px 6px; background: var(--parchment-200); color: var(--ink-900); border: 2px solid var(--brass-700); border-radius: 4px; } } }
