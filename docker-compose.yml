@@ -1,0 +1,22 @@
+# Local development services for The Gilded Quill.
+#   docker compose up -d db     # PostgreSQL on localhost:5434
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: quill-db
+    environment:
+      POSTGRES_USER: quill
+      POSTGRES_PASSWORD: quill
+      POSTGRES_DB: quill
+    ports:
+      - "5434:5432"
+    volumes:
+      - quill-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U quill -d quill"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+volumes:
+  quill-db-data:
