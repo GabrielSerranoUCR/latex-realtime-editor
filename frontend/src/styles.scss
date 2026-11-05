@@ -1,0 +1,333 @@
+// ===== Tavern Theme tokens (mirrors the Figma "Tavern Theme" variable collection) =====
+:root {
+  // ----- Quill's Tavern (the original: dark oak, brass and candlelight) -----
+  --wood-900: #1e120a;
+  --wood-800: #2b1a0f;
+  --wood-700: #3b2414;
+  --wood-600: #4e3019;
+  --wood-500: #6b4423;
+  --wood-400: #8a5a2e;
+  --wood-300: #a06b3a;
+  --parchment-100: #f3e6c8;
+  --parchment-200: #e6d3a8;
+  --parchment-300: #cfb57f;
+  --ink-900: #2a1a0e;
+  --ink-600: #5c4630;
+  --brass-500: #c9a04a;
+  --brass-700: #8f6b24;
+  --ember-500: #d9772b;
+  --candle-400: #f6c85f;
+  --ale-500: #6f8f4e;
+  --wine-500: #9b3030;
+  --iron-700: #3a3a3e;
+  // text that sits on the dark chrome (the wood), in three strengths
+  --text-1: #f3e6c8;
+  --text-2: #e6d3a8;
+  --text-3: #cfb57f;
+  // light text on solid wine/ember buttons
+  --on-solid: #f3e6c8;
+  // the colours behind translucent shades, glows and shadows, as "r g b"
+  --shade-rgb: 30 18 10;
+  --glow-rgb: 246 200 95;
+  --sheen-rgb: 255 220 160;
+  --brass-rgb: 201 160 74;
+  --brass7-rgb: 143 107 36;
+  --panel-rgb: 43 26 15;
+  --backdrop-rgb: 30 18 10;
+  --beam-bg: linear-gradient(180deg, rgb(var(--sheen-rgb) / 0.08), rgb(0 0 0 / 0.3)), var(--wood-800);
+  --compile-bg: #d9772b;
+  --compile-ink: #2a1a0e;
+  --compile-line: #8f6b24;
+  --notice-bg: #d9772b;
+  --notice-ink: #2a1a0e;
+  --notice-line: #8f6b24;
+  --toast-bg: #f3e6c8;
+  --toast-ink: #2a1a0e;
+  --toast-line: #8f6b24;
+  --toast-ok: #6f8f4e;
+  --toast-bad: #9b3030;
+  --floor: url('/tavern/floor.svg') top left / 1440px auto repeat;
+  --code-string: #c9a04a;
+  --diff-add: #8bc66a;
+  --diff-del: #e07a6e;
+
+  --font-display: 'Cinzel Decorative', 'Cinzel', serif;
+  --font-heading: 'Cinzel', serif;
+  --font-body: 'Crimson Pro', Georgia, serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, monospace;
+
+  --shadow-panel: 0 14px 28px rgb(0 0 0 / 0.5);
+}
+
+// ----- Royal Chambers: white marble and ivory, with gold as the second colour -----
+:root[data-theme='royal'] {
+  --wood-900: #e8e1cf;
+  --wood-800: #f5f1e6;
+  --wood-700: #faf8f2;
+  --wood-600: #ffffff;
+  --wood-500: #ffffff;
+  --wood-400: #ffffff;
+  --wood-300: #ffffff;
+  --parchment-100: #ffffff;
+  --parchment-200: #f8f3e3;
+  --parchment-300: #e9dfc2;
+  --ink-900: #1f1a10;
+  --ink-600: #5a5038;
+  --brass-500: #c9a04a;
+  --brass-700: #a37c22;
+  --ember-500: #b4531a;
+  --candle-400: #b8861b;
+  --ale-500: #4c7a33;
+  --wine-500: #9b3030;
+  --iron-700: #cfc8b4;
+  --text-1: #231d11;
+  --text-2: #3f3624;
+  --text-3: #64582f;
+  --on-solid: #ffffff;
+  --shade-rgb: 232 225 207;
+  --glow-rgb: 184 134 27;
+  --sheen-rgb: 255 255 255;
+  --brass-rgb: 201 160 74;
+  --brass7-rgb: 163 124 34;
+  --panel-rgb: 255 255 255;
+  --backdrop-rgb: 40 32 14;
+  --pattern: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='88' height='88' viewBox='0 0 88 88'%3E%3Cg fill='none' stroke='%23c9a04a' stroke-opacity='.34' stroke-width='1.2'%3E%3Cpath d='M44 4 L84 44 L44 84 L4 44 Z'/%3E%3Cpath d='M44 20 L68 44 L44 68 L20 44 Z' stroke-opacity='.22'/%3E%3C/g%3E%3Cg fill='%23c9a04a' fill-opacity='.4'%3E%3Ccircle cx='44' cy='44' r='3'/%3E%3Ccircle cx='0' cy='0' r='3'/%3E%3Ccircle cx='88' cy='0' r='3'/%3E%3Ccircle cx='0' cy='88' r='3'/%3E%3Ccircle cx='88' cy='88' r='3'/%3E%3C/g%3E%3C/svg%3E");
+  --pattern-size: 88px 88px;
+  --beam-bg: linear-gradient(180deg, #e8c978, #c99b3a);
+  --compile-bg: #2f2208;
+  --compile-ink: #f6dd9a;
+  --compile-line: #5a410c;
+  --notice-bg: #f8edc9;
+  --notice-ink: #3b2c08;
+  --notice-line: #c9a04a;
+  --toast-bg: #ffffff;
+  --toast-ink: #231d11;
+  --toast-line: #c9a04a;
+  --toast-ok: #4c7a33;
+  --toast-bad: #9b3030;
+  --floor: repeating-conic-gradient(#f6f1e2 0 25%, #ece5d0 0 50%) 0 0 / 132px 132px;
+  --code-string: #8a6414;
+  --diff-add: #2f7d32;
+  --diff-del: #b3362b;
+  --shadow-panel: 0 10px 24px rgb(90 70 20 / 0.18);
+}
+
+// ----- Dwarves' Caves: black stone with veins of blue crystal -----
+:root[data-theme='caves'] {
+  --wood-900: #04060b;
+  --wood-800: #0a0f18;
+  --wood-700: #101828;
+  --wood-600: #172236;
+  --wood-500: #22314f;
+  --wood-400: #2e4170;
+  --wood-300: #3b5594;
+  --parchment-100: #e8eefa;
+  --parchment-200: #d3ddf0;
+  --parchment-300: #a9b8d6;
+  --ink-900: #0b1120;
+  --ink-600: #3b4967;
+  --brass-500: #3f84e8;
+  --brass-700: #2b5fb0;
+  --ember-500: #e08a3c;
+  --candle-400: #6eb4ff;
+  --ale-500: #3fbf8c;
+  --wine-500: #c2404e;
+  --iron-700: #2a303c;
+  --text-1: #e8eefa;
+  --text-2: #c9d5ec;
+  --text-3: #8fa3c8;
+  --on-solid: #f4f7fd;
+  --shade-rgb: 4 6 11;
+  --glow-rgb: 110 180 255;
+  --sheen-rgb: 150 190 255;
+  --brass-rgb: 63 132 232;
+  --brass7-rgb: 43 95 176;
+  --panel-rgb: 10 15 24;
+  --backdrop-rgb: 2 4 8;
+  --pattern: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='72' height='72' viewBox='0 0 72 72'%3E%3Cg fill='%23000000' fill-opacity='.5'%3E%3Cpath d='M18 8 L26 18 L18 28 L10 18 Z'/%3E%3Cpath d='M54 44 L62 54 L54 64 L46 54 Z'/%3E%3C/g%3E%3C/svg%3E");
+  --pattern-size: 72px 72px;
+  --compile-bg: #3f84e8;
+  --compile-ink: #04101f;
+  --compile-line: #9cc4ff;
+  --notice-bg: #14305c;
+  --notice-ink: #dbe8ff;
+  --notice-line: #3f84e8;
+  --toast-bg: #101a2e;
+  --toast-ink: #e8eefa;
+  --toast-line: #3f84e8;
+  --toast-ok: #3fbf8c;
+  --toast-bad: #ff8a94;
+  --floor: radial-gradient(circle at 30% 30%, rgb(110 180 255 / 0.10) 0 3px, transparent 4px) 0 0 / 170px 170px, repeating-conic-gradient(#0d1422 0 25%, #121a2c 0 50%) 0 0 / 132px 132px;
+  --code-string: #5aa0f5;
+  --diff-add: #5fd39c;
+  --diff-del: #ff7b86;
+  --shadow-panel: 0 14px 28px rgb(0 0 0 / 0.7);
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+
+html, body { height: 100%; margin: 0; }
+
+body {
+  font-family: var(--font-body);
+  font-size: 17px;
+  color: var(--text-1);
+  background: var(--wood-900);
+  -webkit-font-smoothing: antialiased;
+}
+
+// Planks, seams, grain and a vignette, all in CSS (no image assets).
+.wood-bg {
+  background-color: var(--wood-700);
+  background-image:
+    linear-gradient(180deg, rgb(var(--shade-rgb) / 0.25), rgb(var(--shade-rgb) / 0.7)),
+    repeating-linear-gradient(180deg, transparent 0 86px, rgb(var(--shade-rgb) / 0.85) 86px 88px),
+    repeating-linear-gradient(90deg, rgb(var(--sheen-rgb) / 0.035) 0 3px, transparent 3px 9px),
+    linear-gradient(90deg, var(--wood-600), var(--wood-500) 40%, var(--wood-600));
+}
+
+// On the gold top bar of the Royal Chambers the lettering is dark ink.
+:root[data-theme='royal'] .beam { --text-1: #2a1d05; --text-2: #2a1d05; --text-3: #4a3810; --candle-400: #2a1d05; --brass-700: #6e5214; --brass-500: #6e5214; }
+
+// The page itself carries the pattern too (editor, hall and every gap between panels).
+:root[data-theme='royal'] body, :root[data-theme='caves'] body { background-image: var(--pattern); background-size: var(--pattern-size); }
+// the caves' darker diamonds need a stone a little lighter than black to show against
+:root[data-theme='caves'] body { background-color: #111a2b; }
+
+// The same backdrop in the other halls: marble with a gold thread, and cave rock with crystal glints.
+:root[data-theme='royal'] .wood-bg {
+  background-color: #f7f3e8;
+  background-image: var(--pattern), linear-gradient(180deg, rgb(255 255 255 / 0.55), rgb(232 225 207 / 0.7));
+  background-size: var(--pattern-size), auto;
+}
+:root[data-theme='caves'] .wood-bg {
+  background-color: #0a0f18;
+  background-image: var(--pattern), linear-gradient(180deg, rgb(4 6 11 / 0.2), rgb(4 6 11 / 0.75)), linear-gradient(90deg, #101828, #172236 40%, #101828);
+  background-size: var(--pattern-size), auto, auto;
+}
+
+.panel {
+  background: rgb(var(--panel-rgb) / 0.94);
+  border: 2px solid var(--brass-700);
+  border-radius: 6px;
+  box-shadow: var(--shadow-panel);
+}
+
+.eyebrow {
+  font-family: var(--font-heading);
+  font-weight: 700;
+  font-size: 12px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--brass-500);
+}
+
+.btn {
+  font-family: var(--font-heading);
+  font-weight: 700;
+  font-size: 15px;
+  letter-spacing: 0.02em;
+  padding: 9px 18px;
+  border-radius: 4px;
+  border: 2px solid var(--brass-700);
+  background: var(--brass-500);
+  color: var(--ink-900);
+  cursor: pointer;
+  &:hover:not(:disabled) { filter: brightness(1.08); }
+  &:disabled { opacity: 0.55; cursor: progress; }
+  &--ghost { background: transparent; color: var(--text-1); border-color: var(--brass-500); }
+  &--ember { background: var(--compile-bg); color: var(--compile-ink); border-color: var(--compile-line); }
+  &--sm { padding: 5px 12px; font-size: 13px; }
+}
+
+.chip {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-family: var(--font-heading); font-weight: 700; font-size: 12px;
+  padding: 3px 10px; border-radius: 999px; border: 1px solid transparent;
+  &--ok { background: #1f6b3a; color: #eaf6ee; }
+  &--warn { background: #a8691a; color: #fff6e5; }
+  &--bad { background: var(--wine-500); color: #fdeaea; }
+  &--idle { background: var(--wood-600); color: var(--text-2); border-color: var(--brass-700); }
+}
+
+button:focus-visible, input:focus-visible { outline: 2px solid var(--candle-400); outline-offset: 2px; }
+
+// ===== Shared tavern components (match the Figma designs) =====
+
+// Parchment panel used by the sign-in card and dialogs.
+.parchment {
+  position: relative;
+  background: var(--parchment-100);
+  color: var(--ink-900);
+  border: 5px solid var(--wood-900);
+  border-radius: 8px;
+  box-shadow: 0 20px 40px rgb(0 0 0 / 0.6);
+  &::before, &::after { // brass rivets (top corners)
+    content: ''; position: absolute; top: 9px; width: 10px; height: 10px; border-radius: 50%;
+    background: var(--brass-500); border: 1px solid var(--brass-700);
+  }
+  &::before { left: 9px; }
+  &::after { right: 9px; }
+  h1, h2 { font-family: var(--font-heading); font-weight: 700; margin: 0; color: var(--ink-900); }
+  .lede { font-style: italic; color: var(--ink-600); margin: 0; font-size: 18px; }
+}
+
+.field {
+  display: flex; flex-direction: column; gap: 4px;
+  > span { font: 700 13px var(--font-heading); color: var(--ink-900); }
+  input, select {
+    font: 400 17px var(--font-body); color: var(--ink-900);
+    background: var(--parchment-200); border: 2px solid var(--brass-700); border-radius: 4px; padding: 9px 12px;
+    &::placeholder { color: var(--ink-600); font-style: italic; }
+  }
+  small { color: var(--ink-600); font-style: italic; }
+}
+
+.alert { margin: 0; padding: 8px 12px; border-radius: 4px; background: rgb(155 48 48 / 0.12); border: 1px solid var(--wine-500); color: var(--wine-500); font-weight: 600; }
+
+.link { background: none; border: 0; padding: 0; font: 600 17px var(--font-body); color: var(--brass-700); cursor: pointer; text-decoration: underline; }
+
+// The hanging tavern sign with its two chains.
+.hanging-sign {
+  display: flex; flex-direction: column; align-items: center;
+  .chains { display: flex; justify-content: space-between; width: 380px; padding: 0 50px;
+    i { width: 8px; height: 72px; background: var(--iron-700); border: 1px solid var(--wood-900); } }
+  .board {
+    width: 520px; max-width: 90vw; padding: 44px; text-align: center; border-radius: 10px;
+    background: linear-gradient(180deg, rgb(var(--sheen-rgb) / 0.1), rgb(0 0 0 / 0.3)), var(--wood-600);
+    border: 6px solid var(--wood-900); box-shadow: var(--shadow-panel);
+    .est { font: 400 13px var(--font-heading); letter-spacing: 0.2em; color: var(--brass-500); }
+    h1:not(.big) { font: 900 46px/56px var(--font-display); color: var(--candle-400); margin: 12px 0; }
+    p { font: italic 21px/28px var(--font-body); margin: 12px 0 0; }
+  }
+}
+
+// Native <dialog> as a tavern modal.
+dialog.modal {
+  padding: 0; border: 0; background: transparent; color: var(--ink-900); max-width: 94vw;
+  &::backdrop { background: rgb(var(--backdrop-rgb) / 0.72); }
+  .parchment { padding: 30px 34px; display: flex; flex-direction: column; gap: 16px; min-width: min(560px, 90vw); }
+  .row { display: flex; gap: 12px; align-items: flex-end; }
+  .row > .field { flex: 1; }
+  .actions { display: flex; justify-content: flex-end; gap: 12px; }
+}
+.btn--ink { background: transparent; color: var(--ink-900); border-color: var(--brass-700); }
+.btn--danger { background: var(--wine-500); color: var(--on-solid); border-color: var(--ink-900); }
+
+// ===== Tabs and section headings shared by the Profile and Settings dialogs =====
+.modal-tabs {
+  display: flex; margin: 8px 0 14px; border-bottom: 2px solid rgb(var(--brass7-rgb) / 0.5);
+  button {
+    padding: 8px 18px 7px; margin-bottom: -2px; background: none; border: 0; border-bottom: 3px solid transparent;
+    font: 700 15px var(--font-heading); color: var(--ink-600); cursor: pointer;
+    &:hover { color: var(--ink-900); }
+    &[aria-selected='true'] { color: var(--ink-900); border-bottom-color: var(--brass-700); }
+  }
+}
+.section-h { margin: 16px 0 6px; font: 700 12px var(--font-heading); letter-spacing: 0.16em; text-transform: uppercase; color: var(--brass-700); }
+.rule { border: 0; border-top: 1px solid rgb(var(--brass7-rgb) / 0.5); margin: 14px 0; }
+.btn--cancel { background: transparent; color: var(--wine-500); border-color: var(--wine-500); }
+
+// In the Dwarves' Caves the tables and stools are cut from stone, not oak.
+:root[data-theme='caves'] .table > img, :root[data-theme='caves'] .member .stool { filter: grayscale(1) brightness(0.95) contrast(1.15); }
+:root[data-theme='caves'] .table.drop .rug { filter: grayscale(1) brightness(1.7) contrast(1.1); }
