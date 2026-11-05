@@ -1,0 +1,34 @@
+/tmp
+/out-tsc
+
+/node_modules
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+/.pnp
+.pnp.js
+
+.vscode/*
+
+# --- Rust backend ---
+/backend/target
+/backend/data
+
+# --- Angular frontend ---
+/frontend/node_modules
+/frontend/dist
+/frontend/.angular
+
+# --- misc ---
+.DS_Store
+.env
+/e2e/node_modules
+/e2e/shots
+
+# --- local only ---
+/data
+/.idea
+/.claude
+/mcp/node_modules
+/e2e/downloads
+*.log
