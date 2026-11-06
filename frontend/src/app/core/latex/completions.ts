@@ -1,4 +1,4 @@
-import { CompletionContext, CompletionResult, CompletionSource, acceptCompletion, snippet, startCompletion } from '@codemirror/autocomplete';
+import { CompletionContext, CompletionResult, CompletionSource, acceptCompletion, closeCompletion, moveCompletionSelection, snippet, startCompletion } from '@codemirror/autocomplete';
 import { Prec, StateEffect, StateField } from '@codemirror/state';
 import { EditorView, keymap } from '@codemirror/view';
 import type { Completion } from '@codemirror/autocomplete';
@@ -265,3 +265,19 @@ export function latexCompletions(project?: ProjectSource): CompletionSource[] {
  * indentation. Highest precedence keeps it ahead of the editor's generic Tab binding.
  */
 export const acceptCompletionWithTab = [Prec.highest(keymap.of([{ key: 'Tab', run: acceptCompletion }])), ...inlineBraceTracking];
+
+/**
+ * The completion popup's keys, as CodeMirror's own set but WITHOUT Enter: Enter always types a newline and only
+ * Tab accepts a suggestion. (Use with `autocompletion({ defaultKeymap: false })`.)
+ */
+export const completionKeys = Prec.highest(
+  keymap.of([
+    { key: 'Ctrl-Space', run: startCompletion },
+    { mac: 'Alt-`', run: startCompletion },
+    { key: 'Escape', run: closeCompletion },
+    { key: 'ArrowDown', run: moveCompletionSelection(true) },
+    { key: 'ArrowUp', run: moveCompletionSelection(false) },
+    { key: 'PageDown', run: moveCompletionSelection(true, 'page') },
+    { key: 'PageUp', run: moveCompletionSelection(false, 'page') },
+  ]),
+);

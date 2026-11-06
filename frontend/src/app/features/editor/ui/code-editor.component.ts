@@ -11,7 +11,7 @@ import { tags as t } from '@lezer/highlight';
 import { yCollab, yUndoManagerKeymap } from 'y-codemirror.next';
 import { Awareness } from 'y-protocols/awareness';
 import * as Y from 'yjs';
-import { ProjectSource, acceptCompletionWithTab, latexCompletions } from '../../../core/latex/completions';
+import { ProjectSource, acceptCompletionWithTab, completionKeys, latexCompletions } from '../../../core/latex/completions';
 import { FONT_STACKS } from '../../../core/prefs/prefs';
 import { PreferencesService } from '../../../core/prefs/prefs.service';
 
@@ -485,7 +485,8 @@ export class CodeEditorComponent {
           drawSelection(),
           bracketMatching(),
           this.closeC.of(this.closeExt()),
-          autocompletion({ override: latexCompletions(project), icons: true, maxRenderedOptions: 80 }),
+          autocompletion({ override: latexCompletions(project), icons: true, maxRenderedOptions: 80, defaultKeymap: false }),
+          completionKeys,
           acceptCompletionWithTab,
           highlightSelectionMatches(),
           StreamLanguage.define(stex),

@@ -111,6 +111,15 @@ try {
   await owner.keyboard.type('Hello from the browser');
   const txt = await editorText(owner);
   check('Tab accepted the suggestion and left the caret inside the braces', txt.includes('\\section{Hello from the browser}'), JSON.stringify(txt.slice(-60)));
+  // Enter never accepts a suggestion: it types a newline
+  await owner.keyboard.press('Enter');
+  await owner.keyboard.type('\\subsec');
+  await until(() => owner.$('.cm-tooltip-autocomplete'), 'autocomplete popup again');
+  await owner.keyboard.press('Enter');
+  await sleep(200);
+  const afterEnter = await editorText(owner);
+  check('Enter does not accept a suggestion (only Tab does)', !afterEnter.includes('\\subsection') && afterEnter.includes('\\subsec'), JSON.stringify(afterEnter.slice(-30)));
+  for (let i = 0; i < 9; i++) await owner.keyboard.press('Backspace'); // "\subsec" and the two newlines
 
   // ---- invite a reader
   const readerMail = email('rowan');
