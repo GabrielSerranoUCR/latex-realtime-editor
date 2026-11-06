@@ -45,6 +45,7 @@ import { InsertImageDialogComponent } from './ui/insert-image-dialog.component';
 import { PortraitPanelComponent } from './ui/portrait-panel.component';
 import { PanelsMenuComponent } from './ui/panels-menu.component';
 import { PdfPoint, PdfPreviewComponent } from './ui/pdf-preview.component';
+import { columnIn } from '../../core/pdf/word';
 import { ResizeHandleComponent } from './ui/resize-handle.component';
 import { ShareDialogComponent } from './ui/share-dialog.component';
 import { VerifyBannerComponent } from '../account/verify-banner.component';
@@ -549,7 +550,7 @@ export class EditorPage {
     const room = this.collab.roomId();
     if (!room) return;
     const hit = await this.compiler.locate(room, p.page, p.x, p.y);
-    if (hit) this.jump({ severity: 'info', file: hit.file, line: hit.line, message: '' });
+    if (hit) this.jump({ severity: 'info', file: hit.file, line: hit.line, column: columnIn(this.collab.project.read(hit.file), hit.line, p), message: '' });
     else this.toasts.show('Cannot tell where that came from. Compile again, then try a spot with text.', 'bad');
   }
 
@@ -557,7 +558,7 @@ export class EditorPage {
     if (!d.file) return;
     this.collab.openFile(d.file);
     // let the editor swap to the file's Y.Text before moving the caret
-    setTimeout(() => this.editor()?.revealLine(d.line ?? 1), 0);
+    setTimeout(() => this.editor()?.revealLine(d.line ?? 1, d.column), 0);
   }
 
   protected openAiChanges(): void {

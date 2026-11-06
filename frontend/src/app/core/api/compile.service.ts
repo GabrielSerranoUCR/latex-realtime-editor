@@ -6,6 +6,8 @@ export interface Diagnostic {
   severity: 'error' | 'warning' | string;
   file: string | null;
   line: number | null;
+  /** 1-based column, when the place is known to the word (a double-click on the PDF). */
+  column?: number | null;
   message: string;
 }
 

@@ -11,12 +11,13 @@ describe('pop-out protocol', () => {
   it('accepts well-formed messages', () => {
     expect(parseMessage({ type: 'hello', panel: 'preview' })).toEqual({ type: 'hello', panel: 'preview' });
     expect(parseMessage({ type: 'dock', panel: 'log' })).toEqual({ type: 'dock', panel: 'log' });
-    expect(parseMessage({ type: 'jump', diagnostic: { severity: 'error', file: 'a.tex', line: 3, message: 'oops' } })).toEqual({ type: 'jump', diagnostic: { severity: 'error', file: 'a.tex', line: 3, message: 'oops' } });
+    expect(parseMessage({ type: 'jump', diagnostic: { severity: 'error', file: 'a.tex', line: 3, message: 'oops' } })).toEqual({ type: 'jump', diagnostic: { severity: 'error', file: 'a.tex', line: 3, column: null, message: 'oops' } });
+    expect(parseMessage({ type: 'jump', diagnostic: { severity: 'info', file: 'a.tex', line: 3, column: 7, message: '' } })).toEqual({ type: 'jump', diagnostic: { severity: 'info', file: 'a.tex', line: 3, column: 7, message: '' } });
     expect(parseMessage({ type: 'snapshot', snapshot: { state: 'ok', result: null, fatalError: null, pdfUrl: '/api/rooms/x/pdf', pdfBuiltAt: 1 } })?.type).toBe('snapshot');
   });
 
   it('normalises a jump so nothing odd reaches the editor', () => {
-    expect(parseMessage({ type: 'jump', diagnostic: { severity: 7, file: { evil: 1 }, line: 'x', message: 'm', extra: '<b>' } })).toEqual({ type: 'jump', diagnostic: { severity: '7', file: null, line: null, message: 'm' } });
+    expect(parseMessage({ type: 'jump', diagnostic: { severity: 7, file: { evil: 1 }, line: 'x', message: 'm', extra: '<b>' } })).toEqual({ type: 'jump', diagnostic: { severity: '7', file: null, line: null, column: null, message: 'm' } });
   });
 
   it.each([

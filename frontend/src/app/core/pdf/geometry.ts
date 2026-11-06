@@ -1,8 +1,11 @@
 /** Pure layout maths for the PDF preview. Lengths are in PDF points unless the name says `px`. */
 
-/** The CSS scale that makes a page of `pageWidth` points fill `containerPx` (minus `paddingPx` on both sides), times the user's zoom. */
-export function pageScale(containerPx: number, pageWidth: number, zoom: number, paddingPx = 16): number {
-  const fit = Math.max(40, containerPx - 2 * paddingPx) / Math.max(1, pageWidth);
+/**
+ * The CSS scale that makes a page `pageHeight` points tall fit `containerPx` (minus `paddingPx` above and below),
+ * times the user's zoom: the preview adjusts to the panel's height, not its width.
+ */
+export function pageScale(containerPx: number, pageHeight: number, zoom: number, paddingPx = 20): number {
+  const fit = Math.max(40, containerPx - 2 * paddingPx) / Math.max(1, pageHeight);
   return fit * Math.min(4, Math.max(0.25, zoom));
 }
 

@@ -6,6 +6,7 @@ import { CollabService } from '../../core/collab/collab.service';
 import { PreferencesService } from '../../core/prefs/prefs.service';
 import { PopPanel, PopoutMessage, channelName, parseMessage } from '../../core/layout/popout-protocol';
 import { PdfPoint } from '../editor/ui/pdf-preview.component';
+import { columnIn } from '../../core/pdf/word';
 import { InkLogComponent } from '../editor/ui/ink-log.component';
 import { PdfPreviewComponent } from '../editor/ui/pdf-preview.component';
 
@@ -114,7 +115,7 @@ export class PopoutPage {
   /** A double-click on the preview: find the source line here, and have the editor window go to it. */
   protected async locateInMain(p: PdfPoint): Promise<void> {
     const hit = await this.compile.locate(this.id(), p.page, p.x, p.y);
-    if (hit) this.jumpInMain({ severity: 'info', file: hit.file, line: hit.line, message: '' });
+    if (hit) this.jumpInMain({ severity: 'info', file: hit.file, line: hit.line, column: columnIn(this.collab.project.read(hit.file), hit.line, p), message: '' });
   }
 
   protected jumpInMain(d: Diagnostic): void {

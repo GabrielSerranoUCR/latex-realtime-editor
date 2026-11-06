@@ -373,12 +373,13 @@ export class CodeEditorComponent {
     view.dispatch({ selection: { anchor: a, head: b }, effects: EditorView.scrollIntoView(a, { y: 'center' }) });
   }
 
-  /** Move the caret to a 1-based line (used when jumping to a compile error). */
-  revealLine(line: number): void {
+  /** Move the caret to a 1-based line (used when jumping to a compile error), and to a 1-based column when one is given. */
+  revealLine(line: number, column?: number | null): void {
     const view = this.view;
     if (!view) return;
     const n = Math.min(Math.max(1, line), view.state.doc.lines);
-    const pos = view.state.doc.line(n).from;
+    const at = view.state.doc.line(n);
+    const pos = at.from + (column ? Math.min(Math.max(0, column - 1), at.length) : 0);
     view.dispatch({ selection: { anchor: pos }, effects: EditorView.scrollIntoView(pos, { y: 'center' }) });
     view.focus();
   }

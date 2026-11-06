@@ -126,7 +126,7 @@ describe('PopoutService', () => {
     other.postMessage({ type: 'dock', panel: 'preview' });
     expect(layout.popped().preview).toBe(false);
     other.postMessage({ type: 'jump', diagnostic: { severity: 'error', file: 'a.tex', line: 4, message: 'bad' } });
-    expect(jumps).toEqual([{ severity: 'error', file: 'a.tex', line: 4, message: 'bad' }]);
+    expect(jumps).toEqual([{ severity: 'error', file: 'a.tex', line: 4, column: null, message: 'bad' }]);
   });
 
   it('ignores malformed messages', () => {

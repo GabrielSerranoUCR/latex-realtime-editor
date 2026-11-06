@@ -222,8 +222,8 @@ try {
 
   // the viewer: pages centred on a bare background, with text that can be selected
   await until(() => owner.$('qq-pdf-preview .textLayer span'), 'the text layer');
-  const layoutBox = await owner.evaluate(() => { const sc = document.querySelector('qq-pdf-preview .scroller'); const pg = document.querySelector('qq-pdf-preview .page'); const a = sc.getBoundingClientRect(); const b = pg.getBoundingClientRect(); return { dx: Math.abs((a.left + a.width / 2) - (b.left + b.width / 2)), bg: getComputedStyle(sc).backgroundColor, shadow: getComputedStyle(pg).boxShadow }; });
-  check('the page is centred in the preview panel', layoutBox.dx <= 2, `${layoutBox.dx.toFixed(1)}px off`);
+  const layoutBox = await owner.evaluate(() => { const sc = document.querySelector('qq-pdf-preview .scroller'); const pg = document.querySelector('qq-pdf-preview .page'); const a = sc.getBoundingClientRect(); const b = pg.getBoundingClientRect(); return { overflow: sc.scrollWidth > sc.clientWidth, dx: Math.abs((a.left + a.width / 2) - (b.left + b.width / 2)), bg: getComputedStyle(sc).backgroundColor, shadow: getComputedStyle(pg).boxShadow }; });
+  check('the page is centred in the preview panel (when it fits its width; wider, it scrolls)', layoutBox.overflow || layoutBox.dx <= 2, `${layoutBox.dx.toFixed(1)}px off, overflow ${layoutBox.overflow}`);
   check('the preview has no background of its own, and the page has a shadow', layoutBox.bg === 'rgba(0, 0, 0, 0)' && layoutBox.shadow !== 'none', layoutBox.bg);
   {
     const sp = await owner.evaluate(() => { const el = [...document.querySelectorAll('qq-pdf-preview .textLayer span')].find((e) => e.textContent.includes('Everyone')); const r = el.getBoundingClientRect(); return { x: r.x, y: r.y, w: r.width, h: r.height }; });
@@ -238,6 +238,19 @@ try {
   // ---- double-click the PDF: the caret goes to the source line that made that spot (SyncTeX)
   {
     const room = owner.url().match(/\/scroll\/([0-9a-f-]{36})/)[1];
+    // on the word itself, not just the line (first, so the line-level check below leaves the caret where it always did)
+    const wordSpot = await owner.evaluate(() => {
+      const span = [...document.querySelectorAll('qq-pdf-preview .textLayer span')].find((e) => e.textContent.includes('Everyone'));
+      const node = span.firstChild; const text = node.textContent; const i = text.indexOf('table');
+      const r = document.createRange(); r.setStart(node, i); r.setEnd(node, i + 5);
+      const b = r.getBoundingClientRect();
+      return { x: b.x + b.width / 2, y: b.y + b.height / 2, text };
+    });
+    await owner.mouse.click(wordSpot.x, wordSpot.y, { clickCount: 2 });
+    const srcLine = await owner.evaluate(() => [...document.querySelectorAll('.cm-line')].map((l) => l.textContent).find((t) => t.startsWith('Everyone at this table')));
+    const wantCol = srcLine.indexOf('table') + 1;
+    await until(async () => (await owner.$eval('.status span', (e) => e.textContent).catch(() => '')).includes(`Col ${wantCol}`), 'caret on the clicked word');
+    check('double-clicking a word in the PDF puts the caret on that word (not just the line)', true, `Col ${wantCol}`);
     // find a spot on page 1 where the server names a line (proves the server side), then double-click it for real
     const found = await owner.evaluate(async (room) => {
       for (let y = 280; y < 480; y += 6) {

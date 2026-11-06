@@ -7,7 +7,14 @@ type Task = ReturnType<PdfJs['getDocument']>;
 type Page = import('pdfjs-dist/legacy/build/pdf.mjs').PDFPageProxy;
 
 /** A place on the PDF, in points from the page's top-left corner (1-based page). */
-export interface PdfPoint { page: number; x: number; y: number }
+export interface PdfPoint {
+  page: number;
+  x: number;
+  y: number;
+  /** The word under the double-click (the browser selects it), and the text just before it, to place the caret inside the line. */
+  word?: string;
+  before?: string;
+}
 
 let pdfjs: Promise<PdfJs> | null = null;
 /** pdf.js is loaded on first use (it is large), with its worker bundled by the build. */
@@ -30,7 +37,7 @@ interface Slot { el: HTMLElement; canvas: HTMLCanvasElement; text: HTMLElement |
       <span class="sp"></span>
       @if (pdfUrl()) {
         <button type="button" class="hbtn" title="Zoom out" aria-label="Zoom out" (click)="zoomBy(-0.15)">−</button>
-        <button type="button" class="hbtn zoom" [title]="zoom() === 1 ? 'Fit to width' : 'Back to fit to width'" aria-label="Fit to width" (click)="setZoom(1)">{{ (zoom() * 100).toFixed(0) }}%</button>
+        <button type="button" class="hbtn zoom" [title]="zoom() === 1 ? 'Fits the panel height' : 'Back to fit the panel height'" aria-label="Fit to height" (click)="setZoom(1)">{{ (zoom() * 100).toFixed(0) }}%</button>
         <button type="button" class="hbtn" title="Zoom in" aria-label="Zoom in" (click)="zoomBy(0.15)">+</button>
       }
       @if (controls()) {
@@ -77,7 +84,7 @@ export class PdfPreviewComponent implements OnDestroy {
   private pagesEl: HTMLElement | null = null;
   private observer: IntersectionObserver | null = null;
   private resizer: ResizeObserver | null = null;
-  private width = 0;
+  private height = 0;
   private generation = 0;
   private timer: ReturnType<typeof setTimeout> | undefined;
 
@@ -180,23 +187,23 @@ export class PdfPreviewComponent implements OnDestroy {
     if (this.resizer) return;
     const host = this.scroller().nativeElement;
     this.resizer = new ResizeObserver(() => {
-      if (Math.abs(host.clientWidth - this.width) < 2) return;
+      if (Math.abs(host.offsetHeight - this.height) < 2) return;
       clearTimeout(this.timer);
       this.timer = setTimeout(() => this.layout(), 120);
     });
     this.resizer.observe(host);
   }
 
-  /** Size every page for the panel width and zoom; pages that are on screen are drawn again at the new size. */
+  /** Size every page for the panel height and zoom; pages that are on screen are drawn again at the new size. */
   private layout(): void {
     const host = this.scroller().nativeElement;
-    this.width = host.clientWidth;
-    if (!this.slots.length || this.width <= 0) return;
+    this.height = host.offsetHeight;
+    if (!this.slots.length || this.height <= 0) return;
     const top = host.scrollTop;
     const height = host.scrollHeight;
     for (const s of this.slots) {
       const base = s.page.getViewport({ scale: 1 });
-      const next = pageScale(this.width, base.width, this.zoom());
+      const next = pageScale(this.height, base.height, this.zoom());
       if (next !== s.scale) {
         s.text?.remove(); // its words would no longer sit on the page
         s.text = null;
@@ -263,7 +270,29 @@ export class PdfPreviewComponent implements OnDestroy {
     const p = pointOnPage(ev.clientX, ev.clientY, pageEl.getBoundingClientRect(), slot.scale);
     if (!p) return;
     this.ping(pageEl, ev.clientX, ev.clientY);
-    this.locate.emit({ page: Number(pageEl.dataset['page']), x: p.x, y: p.y });
+    this.locate.emit({ page: Number(pageEl.dataset['page']), x: p.x, y: p.y, ...this.clickedWord(pageEl, ev.clientX, ev.clientY) });
+  }
+
+  /** The word under the click (read from the click's position, not from the selection), and what precedes it in the same piece of text. */
+  private clickedWord(pageEl: HTMLElement, clientX: number, clientY: number): { word?: string; before?: string } {
+    const doc = document as Document & { caretPositionFromPoint?: (x: number, y: number) => { offsetNode: Node; offset: number } | null; caretRangeFromPoint?: (x: number, y: number) => Range | null };
+    let node: Node | null = null;
+    let offset = 0;
+    const pos = doc.caretPositionFromPoint?.(clientX, clientY);
+    if (pos) ({ offsetNode: node, offset } = pos);
+    else {
+      const range = doc.caretRangeFromPoint?.(clientX, clientY);
+      if (range) ({ startContainer: node, startOffset: offset } = range);
+    }
+    if (!node || node.nodeType !== Node.TEXT_NODE || !pageEl.contains(node)) return {};
+    const text = node.textContent ?? '';
+    const isWord = (c: string | undefined): boolean => !!c && /[\p{L}\p{N}'’]/u.test(c);
+    let i = Math.min(offset, text.length);
+    let j = i;
+    while (i > 0 && isWord(text[i - 1])) i--;
+    while (j < text.length && isWord(text[j])) j++;
+    if (i === j || j - i > 60) return {};
+    return { word: text.slice(i, j), before: text.slice(0, i) };
   }
 
   /** A small ring where the reader double-clicked, so it is clear the click was heard. */
