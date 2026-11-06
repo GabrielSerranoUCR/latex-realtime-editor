@@ -226,6 +226,19 @@ try {
   check('the page is centred in the preview panel (when it fits its width; wider, it scrolls)', layoutBox.overflow || layoutBox.dx <= 2, `${layoutBox.dx.toFixed(1)}px off, overflow ${layoutBox.overflow}`);
   check('the preview has no background of its own, and the page has a shadow', layoutBox.bg === 'rgba(0, 0, 0, 0)' && layoutBox.shadow !== 'none', layoutBox.bg);
   {
+    // zoomed in, then the panel changes size: the page fits afresh at the default 100%
+    const zoomLabel = () => owner.$eval('qq-pdf-preview .hbtn.zoom', (e) => e.textContent.trim());
+    await owner.evaluate(() => [...document.querySelectorAll('qq-pdf-preview .head .hbtn')].find((b) => b.getAttribute('aria-label') === 'Zoom in').click());
+    await until(async () => (await zoomLabel()) === '115%', 'zoomed in');
+    const vp = owner.viewport();
+    await owner.setViewport({ ...vp, height: vp.height - 80 });
+    await until(async () => (await zoomLabel()) === '100%', 'back at 100% after the panel was resized');
+    check('when the panel is resized the preview fits afresh at the default 100% zoom', true);
+    await owner.setViewport(vp);
+    await until(async () => (await owner.$eval('qq-pdf-preview .scroller', (e) => e.offsetHeight)) > 0, 'panel back');
+    await sleep(500);
+  }
+  {
     const sp = await owner.evaluate(() => { const el = [...document.querySelectorAll('qq-pdf-preview .textLayer span')].find((e) => e.textContent.includes('Everyone')); const r = el.getBoundingClientRect(); return { x: r.x, y: r.y, w: r.width, h: r.height }; });
     await owner.mouse.move(sp.x + 1, sp.y + sp.h / 2);
     await owner.mouse.down();

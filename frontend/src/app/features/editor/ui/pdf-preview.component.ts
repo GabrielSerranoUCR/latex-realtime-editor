@@ -189,7 +189,11 @@ export class PdfPreviewComponent implements OnDestroy {
     this.resizer = new ResizeObserver(() => {
       if (Math.abs(host.offsetHeight - this.height) < 2) return;
       clearTimeout(this.timer);
-      this.timer = setTimeout(() => this.layout(), 120);
+      // the panel changed size: fit the page to it afresh, back at the default zoom
+      this.timer = setTimeout(() => {
+        this.zoom.set(1);
+        this.layout();
+      }, 120);
     });
     this.resizer.observe(host);
   }
