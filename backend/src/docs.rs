@@ -269,14 +269,15 @@ pub async fn apply(state: &AppState, scroll: Uuid, change: &Change) -> Result<Ap
                 .rooms
                 .mutate(&room, |doc| {
                     let was_main = main_file(doc) == *path;
+                    // (take every map handle before the write transaction opens: asking the document for a root type while one is open blocks forever)
                     let files = doc.get_or_insert_map("files");
+                    let meta = doc.get_or_insert_map("meta");
                     let mut txn = doc.transact_mut();
                     let removed = files.remove(&mut txn, path).is_some();
                     if removed && was_main {
                         // the entry file is gone: hand the role to another source (a .tex if there is one) so compiling still has a target
                         let mut rest: Vec<String> = files.keys(&txn).map(String::from).collect();
                         rest.sort();
-                        let meta = doc.get_or_insert_map("meta");
                         match rest.iter().find(|p| p.ends_with(".tex")).or(rest.first()) {
                             Some(next) => {
                                 meta.insert(&mut txn, "main", next.as_str());
