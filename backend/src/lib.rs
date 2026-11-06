@@ -18,6 +18,7 @@ pub mod requests;
 pub mod rooms;
 pub mod scrolls;
 pub mod store;
+pub mod synctex;
 pub mod tokens;
 pub mod versions;
 pub mod assets;
@@ -155,6 +156,7 @@ pub fn router(state: AppState) -> Router {
         .route("/api/scrolls/{id}/versions/{vid}/restore", post(versions::restore))
         .route("/api/rooms/{room}/compile", post(api::compile))
         .route("/api/rooms/{room}/pdf", get(api::latest_pdf))
+        .route("/api/rooms/{room}/synctex", get(api::synctex_lookup))
         .layer(middleware::from_fn_with_state(state.clone(), assistants::track))
         .layer(middleware::from_fn_with_state(state.clone(), auth::origin_guard))
         .layer(cors)

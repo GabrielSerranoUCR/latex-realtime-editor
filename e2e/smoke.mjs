@@ -206,10 +206,34 @@ try {
     await sleep(400);
     check('and it opens again', (await owner.$$('qq-file-tree li')).length === before);
   }
-  await until(() => owner.$('qq-pdf-preview iframe'), 'pdf iframe');
-  check('PDF preview iframe appears', true);
-  await until(() => reader.$('qq-pdf-preview iframe'), 'reader preview follows the build');
+  await until(() => owner.$('qq-pdf-preview .page canvas'), 'pdf page');
+  check('PDF preview shows the pages', true);
+  await until(() => reader.$('qq-pdf-preview .page canvas'), 'reader preview follows the build');
   check("reader's preview shows the owner's build automatically", true);
+
+  // ---- double-click the PDF: the caret goes to the source line that made that spot (SyncTeX)
+  {
+    const room = owner.url().match(/\/scroll\/([0-9a-f-]{36})/)[1];
+    // find a spot on page 1 where the server names a line (proves the server side), then double-click it for real
+    const found = await owner.evaluate(async (room) => {
+      for (let y = 280; y < 480; y += 6) {
+        const r = await fetch(`/api/rooms/${room}/synctex?page=1&x=200&y=${y}`);
+        if (r.ok) { const hit = await r.json(); if (hit.line > 1) return { y, line: hit.line, file: hit.file }; }
+      }
+      return null;
+    }, room);
+    check('the server maps a spot of the PDF back to a source line (SyncTeX)', found !== null, JSON.stringify(found));
+    const y = found?.y ?? 100;
+    await owner.click('.cm-content');
+    await owner.keyboard.down(MOD_KEY);
+    await owner.keyboard.press(MOD_KEY === 'Meta' ? 'ArrowUp' : 'Home');
+    await owner.keyboard.up(MOD_KEY);
+    const box = await owner.$eval('qq-pdf-preview .page', (e) => { const r = e.getBoundingClientRect(); return { left: r.left, top: r.top, width: r.width }; });
+    const scale = box.width / 612;
+    await owner.mouse.click(box.left + 200 * scale, box.top + y * scale, { clickCount: 2 });
+    await until(async () => (await owner.$$eval('.cm-activeLineGutter', (els) => els.map((e) => e.textContent.trim()).filter(Boolean).join(','))) === String(found?.line), 'caret on the line behind the spot');
+    check('double-clicking the PDF puts the caret on the source line behind it', true, `line ${found?.line}`);
+  }
   await sleep(1500);
   await owner.screenshot({ path: `${OUT}/05-editor-compiled.png` });
   await reader.screenshot({ path: `${OUT}/06-reader-editor.png` });
@@ -460,17 +484,17 @@ try {
   await popWin.waitForSelector('qq-pdf-preview');
   await owner.waitForSelector('.away');
   check('"Pop out" opens the preview in a window of its own and leaves a note behind', (await owner.$eval('.away', (e) => e.innerText)).includes('Scroll Preview is open in another window'));
-  await popWin.waitForSelector('qq-pdf-preview iframe');
+  await popWin.waitForSelector('qq-pdf-preview .page canvas');
   check('the popped-out window shows the PDF and says it is live-linked', (await popWin.title()).includes('Scroll Preview') && (await popWin.$eval('.win', (e) => e.innerText)).includes('Dock back'));
   await until(async () => (await popWin.$eval('.foot', (e) => e.innerText)).includes('Live-linked'), 'popup linked');
   check('the popup is live-linked to the main window', true);
   await sleep(1500);
   check('opening the preview in its own window does not add a scribe to the table', (await seats(owner)) === seatsBefore, `${seatsBefore} before, ${await seats(owner)} after`);
-  const prevSrc = await popWin.$eval('qq-pdf-preview iframe', (e) => e.getAttribute('src'));
+  const prevSrc = await popWin.$eval('qq-pdf-preview .scroller', (e) => e.getAttribute('data-src'));
   await owner.bringToFront();
   await owner.click('.cm-content');
   await owner.keyboard.down('Control'); await owner.keyboard.press('Enter'); await owner.keyboard.up('Control');
-  await until(async () => (await popWin.$eval('qq-pdf-preview iframe', (e) => e.getAttribute('src'))) !== prevSrc, 'popup follows the new build');
+  await until(async () => (await popWin.$eval('qq-pdf-preview .scroller', (e) => e.getAttribute('data-src'))) !== prevSrc, 'popup follows the new build');
   check('a new compile in the main window shows up in the popped-out preview', true);
   await popWin.screenshot({ path: `${OUT}/18-preview-popout.png` });
   await popWin.click('header .btn:last-child');
@@ -1142,11 +1166,11 @@ try {
   await owner.waitForSelector('dialog.settings[open]');
   await pfSwitch(owner, 'dialog.settings', 0); // auto-compile on (Compiler tab)
   await pfSaveSettings(owner);
-  const srcBefore = await owner.$eval('qq-pdf-preview iframe', (e) => e.getAttribute('src'));
+  const srcBefore = await owner.$eval('qq-pdf-preview .scroller', (e) => e.getAttribute('data-src'));
   await owner.click('.cm-content');
   await owner.keyboard.press('ArrowRight');
   await owner.keyboard.type(' ');
-  await until(async () => (await owner.$eval('qq-pdf-preview iframe', (e) => e.getAttribute('src'))) !== srcBefore, 'a build starts by itself', 20000);
+  await until(async () => (await owner.$eval('qq-pdf-preview .scroller', (e) => e.getAttribute('data-src'))) !== srcBefore, 'a build starts by itself', 20000);
   check('with auto-compile on, a build starts a moment after you stop typing', true);
   await owner.keyboard.press('Backspace');
   await pfClickText(owner, 'header .panels button', 'Settings');

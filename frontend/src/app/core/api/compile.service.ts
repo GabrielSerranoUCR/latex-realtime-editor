@@ -61,6 +61,16 @@ export class CompileService {
     this.pdfBuiltAt.set(s.pdfBuiltAt);
   }
 
+  /** The file and line behind a spot of the latest PDF (page from 1; x and y in points from the page's top-left), or null when it is unknown. */
+  async locate(room: string, page: number, x: number, y: number): Promise<{ file: string; line: number } | null> {
+    try {
+      const q = `page=${page}&x=${x.toFixed(2)}&y=${y.toFixed(2)}`;
+      return await firstValueFrom(this.http.get<{ file: string; line: number }>(`/api/rooms/${encodeURIComponent(room)}/synctex?${q}`));
+    } catch {
+      return null;
+    }
+  }
+
   /** Show a PDF that another scribe just built (announced through the document). */
   adoptBuild(room: string, builtAt: number): void {
     if (this.pdfBuiltAt() === builtAt) return;
