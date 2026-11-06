@@ -47,7 +47,7 @@ interface Slot { el: HTMLElement; canvas: HTMLCanvasElement; text: HTMLElement |
       }
     </div>
     <div class="stage">
-      <div #scroller class="scroller" [attr.data-src]="pdfUrl()" [class.stale]="stale()" [hidden]="!pdfUrl()" role="document" aria-label="Compiled PDF preview" title="Double-click a spot to jump to it in the source" (dblclick)="onDouble($event)"></div>
+      <div #scroller class="scroller" [attr.data-src]="pdfUrl()" [class.stale]="stale()" [hidden]="!pdfUrl()" role="document" aria-label="Compiled PDF preview" (dblclick)="onDouble($event)"></div>
       @if (!pdfUrl()) {
         <div class="empty">
           <p class="title">No scroll to show yet</p>
