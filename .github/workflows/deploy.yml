@@ -117,35 +117,36 @@ jobs:
           set -euo pipefail
           base="${COOLIFY_URL%/}"
           auth=(-H "Authorization: Bearer ${COOLIFY_TOKEN}" -H "Accept: application/json")
-          # GET a Coolify API path. On any HTTP error, say which request failed and what the server answered (status,
+          # Call a Coolify API path (coolify_call METHOD PATH). On any HTTP error, say which request failed and what the server answered (status,
           # the headers that identify it, and the start of the body), instead of curl's bare "error: 405".
           # The address itself is a secret, so only the path is printed.
-          coolify_get() {
-            local path="$1" body headers code
+          coolify_call() {
+            local method="$1" path="$2" body headers code
             body=$(mktemp); headers=$(mktemp)
-            if ! code=$(curl -sS -o "$body" -D "$headers" -w '%{http_code}' "${auth[@]}" "${base}${path}"); then
-              echo "::error title=Could not reach Coolify::GET ${path%%\?*}: curl failed (is COOLIFY_URL right, and is Coolify up?)"
+            if ! code=$(curl -sS -X "$method" -o "$body" -D "$headers" -w '%{http_code}' "${auth[@]}" "${base}${path}"); then
+              echo "::error title=Could not reach Coolify::${method} ${path%%\?*}: curl failed (is COOLIFY_URL right, and is Coolify up?)"
               exit 1
             fi
             if [ "$code" -ge 400 ]; then
               {
-                echo "Coolify answered HTTP ${code} to GET ${path%%\?*}"
+                echo "Coolify answered HTTP ${code} to ${method} ${path%%\?*}"
                 echo "--- headers that say who answered:"
                 grep -iE '^(HTTP/|server|allow|www-authenticate|location|via|cf-ray|x-powered-by|content-type):' "$headers" | tr -d '\r' || true
                 echo "--- body (first 600 bytes):"
                 head -c 600 "$body"; echo
               } >&2
-              echo "::error title=Coolify answered HTTP ${code}::GET ${path%%\?*}. $(head -c 300 "$body" | tr '\n' ' ') -- see the log above for the headers. 405 usually means COOLIFY_URL is not the Coolify dashboard address (or something in front of it blocks the call); 401/403 means the token or its deploy permission; 404 the application UUID."
+              echo "::error title=Coolify answered HTTP ${code}::${method} ${path%%\?*}. $(head -c 300 "$body" | tr '\n' ' ') -- see the log above for the headers. 405 usually means COOLIFY_URL is not the Coolify dashboard address (or something in front of it blocks the call); 401/403 means the token or its deploy permission; 404 the application UUID."
               exit 1
             fi
             cat "$body"
           }
-          resp=$(coolify_get "/api/v1/deploy?uuid=${COOLIFY_APP_UUID}&force=true")
+          # newer Coolify versions only accept POST here (a GET answers 405 "This endpoint has changed to a POST request")
+          resp=$(coolify_call POST "/api/v1/deploy?uuid=${COOLIFY_APP_UUID}&force=true")
           deployment=$(jq -r '.deployments[0].deployment_uuid // empty' <<<"$resp")
           if [ -z "$deployment" ]; then echo "::error::Coolify did not start a deployment: $(jq -c . <<<"$resp")"; exit 1; fi
           echo "Started deployment ${deployment}"
           for _ in $(seq 1 90); do
-            status=$(coolify_get "/api/v1/deployments/${deployment}" | jq -r '.status')
+            status=$(coolify_call GET "/api/v1/deployments/${deployment}" | jq -r '.status')
             echo "  ${deployment}: ${status}"
             case "$status" in
               finished) exit 0 ;;
