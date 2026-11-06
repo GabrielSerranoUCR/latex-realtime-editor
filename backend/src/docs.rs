@@ -192,9 +192,6 @@ pub async fn check(state: &AppState, scroll: Uuid, change: &Change) -> Result<()
             plan_edit(&text, old, new, *all)?;
         }
         Change::Delete { path } => {
-            if main_file(&doc) == *path {
-                return Err(AppError::Conflict("That is the main file of the scroll; pick another main file first.".into()));
-            }
             current_text(&doc, path).ok_or(AppError::NotFound)?;
         }
     }
@@ -271,9 +268,25 @@ pub async fn apply(state: &AppState, scroll: Uuid, change: &Change) -> Result<Ap
             let done = state
                 .rooms
                 .mutate(&room, |doc| {
+                    let was_main = main_file(doc) == *path;
                     let files = doc.get_or_insert_map("files");
                     let mut txn = doc.transact_mut();
-                    files.remove(&mut txn, path).is_some()
+                    let removed = files.remove(&mut txn, path).is_some();
+                    if removed && was_main {
+                        // the entry file is gone: hand the role to another source (a .tex if there is one) so compiling still has a target
+                        let mut rest: Vec<String> = files.keys(&txn).map(String::from).collect();
+                        rest.sort();
+                        let meta = doc.get_or_insert_map("meta");
+                        match rest.iter().find(|p| p.ends_with(".tex")).or(rest.first()) {
+                            Some(next) => {
+                                meta.insert(&mut txn, "main", next.as_str());
+                            }
+                            None => {
+                                meta.remove(&mut txn, "main");
+                            }
+                        }
+                    }
+                    removed
                 })
                 .await?;
             if !done {
@@ -348,7 +361,7 @@ pub async fn edit(State(state): State<AppState>, user: AuthUser, via: ViaToken, 
     route(&state, &user, &via, id, change, &body.note).await
 }
 
-/// `DELETE /api/scrolls/{id}/files/{*path}`: the main file cannot be deleted.
+/// `DELETE /api/scrolls/{id}/files/{*path}`. Deleting the main file is allowed: another source becomes the main file.
 pub async fn remove(State(state): State<AppState>, user: AuthUser, via: ViaToken, Path((id, raw)): Path<(Uuid, String)>) -> Result<Response, AppError> {
     if !require_role(&state.db, id, user.id).await?.can_write() {
         return Err(AppError::Forbidden);

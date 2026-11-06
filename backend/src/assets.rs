@@ -14,7 +14,7 @@ use sqlx::FromRow;
 use uuid::Uuid;
 use yrs::{Any, Map, Out, Transact};
 
-use crate::{AppState, auth::AuthUser, error::AppError, scrolls::require_role};
+use crate::{AppState, auth::{AuthUser, ViaToken}, error::AppError, scrolls::{refuse_if_held, require_role}};
 
 /// Extensions we accept, with their content types. Anything else is refused.
 const ALLOWED: &[(&str, &str)] = &[
@@ -77,11 +77,15 @@ pub async fn list(State(state): State<AppState>, user: AuthUser, Path(id): Path<
 }
 
 /// `PUT /api/scrolls/{id}/assets/{*path}` — raw bytes in the body (scribes and the owner).
-pub async fn put(State(state): State<AppState>, user: AuthUser, Path((id, raw)): Path<(Uuid, String)>, body: Bytes) -> Result<Json<AssetInfo>, AppError> {
+pub async fn put(State(state): State<AppState>, user: AuthUser, via: ViaToken, Path((id, raw)): Path<(Uuid, String)>, body: Bytes) -> Result<Json<AssetInfo>, AppError> {
     if !require_role(&state.db, id, user.id).await?.can_write() {
         return Err(AppError::Forbidden);
     }
     let (path, mime) = clean_path(&raw)?;
+    let exists: bool = sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM scroll_assets WHERE scroll_id = $1 AND path = $2)").bind(id).bind(&path).fetch_one(&state.db).await?;
+    if exists {
+        refuse_if_held(&state.db, &via, id, "replacing an existing picture").await?;
+    }
     if body.is_empty() {
         return Err(AppError::BadRequest("That file is empty.".into()));
     }
@@ -161,9 +165,12 @@ pub struct RelocateRequest {
 /// `POST /api/scrolls/{id}/asset-moves` — rename, move to another table (folder) or duplicate an asset
 /// without its bytes ever leaving the server. The new path is reserved first (the database refuses a
 /// name that is taken), then the file moves, then the old name is retired and the live `assets` map updated.
-pub async fn relocate(State(state): State<AppState>, user: AuthUser, Path(id): Path<Uuid>, Json(req): Json<RelocateRequest>) -> Result<Json<AssetInfo>, AppError> {
+pub async fn relocate(State(state): State<AppState>, user: AuthUser, via: ViaToken, Path(id): Path<Uuid>, Json(req): Json<RelocateRequest>) -> Result<Json<AssetInfo>, AppError> {
     if !require_role(&state.db, id, user.id).await?.can_write() {
         return Err(AppError::Forbidden);
+    }
+    if !req.copy {
+        refuse_if_held(&state.db, &via, id, "moving or renaming a picture").await?;
     }
     let (from, from_mime) = clean_path(&req.from)?;
     let (to, to_mime) = clean_path(&req.to)?;
@@ -227,10 +234,11 @@ pub async fn relocate(State(state): State<AppState>, user: AuthUser, Path(id): P
     Ok(Json(moved))
 }
 
-pub async fn remove(State(state): State<AppState>, user: AuthUser, Path((id, raw)): Path<(Uuid, String)>) -> Result<axum::http::StatusCode, AppError> {
+pub async fn remove(State(state): State<AppState>, user: AuthUser, via: ViaToken, Path((id, raw)): Path<(Uuid, String)>) -> Result<axum::http::StatusCode, AppError> {
     if !require_role(&state.db, id, user.id).await?.can_write() {
         return Err(AppError::Forbidden);
     }
+    refuse_if_held(&state.db, &via, id, "deleting a picture").await?;
     let (path, _) = clean_path(&raw)?;
     let gone = sqlx::query("DELETE FROM scroll_assets WHERE scroll_id = $1 AND path = $2").bind(id).bind(&path).execute(&state.db).await?;
     if gone.rows_affected() == 0 {

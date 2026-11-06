@@ -22,8 +22,6 @@ use crate::{
 };
 
 const MAX_NOTE_CHARS: usize = 300;
-/// How much of a whole-file proposal is sent in lists (the full text is applied when it is accepted).
-const PREVIEW_CHARS: usize = 20_000;
 
 /// Keep a proposal for later. Returns its id.
 pub async fn create(state: &AppState, scroll: Uuid, user: Uuid, token_name: &str, change: &Change, note: &str) -> Result<Uuid, AppError> {
@@ -75,7 +73,7 @@ pub struct Proposal {
     pub old_text: Option<String>,
     pub new_text: Option<String>,
     pub replace_all: bool,
-    /// The new text of a whole-file write (cut short in lists).
+    /// The new text of a whole-file write, in full (the review shows it as a diff against the file).
     pub content: Option<String>,
     pub note: String,
     pub token_name: String,
@@ -88,27 +86,18 @@ pub struct Proposal {
 const SELECT: &str = "SELECT p.id, p.kind, p.path, p.old_text, p.new_text, p.replace_all, p.content, p.note, p.token_name, u.display_name AS by, p.status, p.created_at, p.decided_at
                         FROM edit_proposals p JOIN users u ON u.id = p.user_id";
 
-fn shorten(mut p: Proposal) -> Proposal {
-    if let Some(c) = &p.content {
-        if c.chars().count() > PREVIEW_CHARS {
-            p.content = Some(c.chars().take(PREVIEW_CHARS).collect::<String>() + "\n…");
-        }
-    }
-    p
-}
-
 /// `GET /api/scrolls/{id}/proposals`: the edits waiting for a decision, oldest first.
 pub async fn list(State(state): State<AppState>, user: AuthUser, Path(scroll): Path<Uuid>) -> Result<Json<Vec<Proposal>>, AppError> {
     require_role(&state.db, scroll, user.id).await?;
     let rows = sqlx::query_as::<_, Proposal>(sqlx::AssertSqlSafe(format!("{SELECT} WHERE p.scroll_id = $1 AND p.status = 'pending' ORDER BY p.created_at"))).bind(scroll).fetch_all(&state.db).await?;
-    Ok(Json(rows.into_iter().map(shorten).collect()))
+    Ok(Json(rows))
 }
 
 /// `GET /api/scrolls/{id}/proposals/{pid}`: how one stands (an assistant can ask whether its edit was accepted).
 pub async fn get(State(state): State<AppState>, user: AuthUser, Path((scroll, pid)): Path<(Uuid, Uuid)>) -> Result<Json<Proposal>, AppError> {
     require_role(&state.db, scroll, user.id).await?;
     let row = sqlx::query_as::<_, Proposal>(sqlx::AssertSqlSafe(format!("{SELECT} WHERE p.scroll_id = $1 AND p.id = $2"))).bind(scroll).bind(pid).fetch_optional(&state.db).await?.ok_or(AppError::NotFound)?;
-    Ok(Json(shorten(row)))
+    Ok(Json(row))
 }
 
 #[derive(FromRow)]
