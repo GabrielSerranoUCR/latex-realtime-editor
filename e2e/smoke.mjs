@@ -1569,7 +1569,11 @@ try {
   await owner.click('dialog.profile form.newtoken button[type=submit]');
   await owner.waitForSelector('dialog.profile .fresh');
   const freshText = await owner.$eval('dialog.profile .fresh', (e) => e.innerText);
-  check('making a token shows it once, with the MCP configuration to copy', (await owner.$eval('dialog.profile .fresh input', (e) => e.value)).startsWith('qq_') && freshText.includes('mcpServers') && freshText.includes('will not be shown again'));
+  check('making a token shows it once, with the Claude Code command to copy (the default tab)', (await owner.$eval('dialog.profile .fresh input', (e) => e.value)).startsWith('qq_') && freshText.includes('claude mcp add gilded-quill') && freshText.includes('will not be shown again'));
+  await owner.evaluate(() => [...document.querySelectorAll('dialog.profile .harnesses [role=radio]')].find((b) => b.textContent.trim() === 'Antigravity').click());
+  check('the Antigravity tab shows the JSON configuration', (await owner.$eval('dialog.profile .fresh pre.cfg', (e) => e.innerText)).includes('mcpServers'));
+  await owner.evaluate(() => [...document.querySelectorAll('dialog.profile .harnesses [role=radio]')].find((b) => b.textContent.trim() === 'Codex').click());
+  check('the Codex tab shows the TOML configuration', (await owner.$eval('dialog.profile .fresh pre.cfg', (e) => e.innerText)).includes('[mcp_servers.gilded-quill]'));
   await owner.screenshot({ path: `${OUT}/39-tokens.png` });
   check('the token is listed as read only unless editing was allowed', (await owner.$eval('dialog.profile ul.tokens', (e) => e.innerText)).includes('Claude on my laptop') && (await owner.$eval('dialog.profile ul.tokens', (e) => e.innerText)).includes('read only'));
   await owner.evaluate(() => [...document.querySelectorAll('dialog.profile ul.tokens li')].find((li) => li.textContent.includes('Claude on my laptop')).querySelector('button').click());
