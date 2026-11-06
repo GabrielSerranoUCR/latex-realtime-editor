@@ -120,3 +120,15 @@ export function humanBytes(n) {
   if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
   return `${(n / 1024 / 1024).toFixed(1)} MB`;
 }
+
+/** Notes (margin comment threads) as text for the model: where each one sits, who said what, and whether it is resolved. */
+export function describeNotes(threads) {
+  if (!threads.length) return 'No notes.';
+  return threads
+    .map((t) => {
+      const where = t.line ? `${t.file}:${t.line}` : `${t.file} (the text it was about is gone)`;
+      const head = `${t.id}  ${where}  ${t.resolved ? `RESOLVED${t.resolvedBy ? ` by ${t.resolvedBy}` : ''}` : 'open'}${t.quote ? `  on “${t.quote}”` : ''}`;
+      return [head, ...t.messages.map((m) => `    ${m.author}: ${m.text.replace(/\n/g, '\n      ')}`)].join('\n');
+    })
+    .join('\n\n');
+}

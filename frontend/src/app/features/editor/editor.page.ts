@@ -23,6 +23,7 @@ import { decodeSession } from '../../core/session/session-file';
 import { MenubarComponent, Menu } from '../../shared/menubar.component';
 import { archiveName, buildArchive } from '../../core/collab/zip-export';
 import { ImportDialogComponent } from '../hall/import-dialog.component';
+import { AiChangesComponent } from './ui/ai-changes.component';
 import { AiDialogComponent } from './ui/ai-dialog.component';
 import { SearchPanelComponent } from './ui/search-panel.component';
 import type { Hit } from '../../core/search/search';
@@ -49,7 +50,7 @@ import { VerifyBannerComponent } from '../account/verify-banner.component';
 
 @Component({
   selector: 'qq-editor-page',
-  imports: [RecPillComponent, TimelapseComponent, MenubarComponent, ImportDialogComponent, AiDialogComponent, SearchPanelComponent, TourComponent, CommandPaletteComponent, CodeEditorComponent, CommentsPanelComponent, DiffViewComponent, PanelsMenuComponent, ResizeHandleComponent, HistoryPanelComponent, FileTreeComponent, InkLogComponent, InsertImageDialogComponent, PortraitPanelComponent, PdfPreviewComponent, ShareDialogComponent, RouterLink, VerifyBannerComponent],
+  imports: [RecPillComponent, TimelapseComponent, MenubarComponent, ImportDialogComponent, AiDialogComponent, AiChangesComponent, SearchPanelComponent, TourComponent, CommandPaletteComponent, CodeEditorComponent, CommentsPanelComponent, DiffViewComponent, PanelsMenuComponent, ResizeHandleComponent, HistoryPanelComponent, FileTreeComponent, InkLogComponent, InsertImageDialogComponent, PortraitPanelComponent, PdfPreviewComponent, ShareDialogComponent, RouterLink, VerifyBannerComponent],
   templateUrl: './editor.page.html',
   styleUrl: './editor.page.scss',
 })
@@ -76,6 +77,7 @@ export class EditorPage {
   private readonly editor = viewChild(CodeEditorComponent);
   private readonly shareDialog = viewChild(ShareDialogComponent);
   private readonly aiDialog = viewChild(AiDialogComponent);
+  private readonly aiChanges = viewChild(AiChangesComponent);
   private readonly importer = viewChild(ImportDialogComponent);
   private readonly timelapse = viewChild(TimelapseComponent);
   private readonly sessionInput = viewChild<ElementRef<HTMLInputElement>>('sessionInput');
@@ -527,6 +529,10 @@ export class EditorPage {
     this.collab.openFile(d.file);
     // let the editor swap to the file's Y.Text before moving the caret
     setTimeout(() => this.editor()?.revealLine(d.line ?? 1), 0);
+  }
+
+  protected openAiChanges(): void {
+    void this.aiChanges()?.open();
   }
 
   protected openAiEdits(): void {

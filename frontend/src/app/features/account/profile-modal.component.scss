@@ -52,3 +52,5 @@ input[readonly] { background: var(--parchment-300); color: var(--ink-600); }
 .cfg { margin: 0; padding: 10px; max-height: 190px; overflow: auto; font: 400 12px/1.4 var(--font-mono); background: var(--parchment-200); border: 1px solid var(--brass-700); border-radius: 4px; white-space: pre; }
 .newtoken { display: flex; flex-direction: column; gap: 8px; .btn { align-self: flex-start; } }
 .tokens b { overflow-wrap: anywhere; }
+
+.harnesses { display: flex; flex-wrap: wrap; gap: 6px; .chip { font: 700 12px var(--font-heading); padding: 4px 12px; border-radius: 999px; background: transparent; color: var(--ink-900); border: 1px solid var(--brass-700); cursor: pointer; &.on { background: var(--ink-900); color: var(--parchment-100); } &:focus-visible { outline: 3px solid var(--candle-400); } } }

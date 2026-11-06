@@ -10,16 +10,17 @@ import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import { readFile } from 'node:fs/promises';
 import { z } from 'zod';
 import { QuillClient, enc } from './client.mjs';
-import { VIEWABLE, decodeBase64, describeCompile, describeQueued, humanBytes, numberLines, pictureType, searchTexts, titleMatches } from './lib.mjs';
+import { VIEWABLE, decodeBase64, describeCompile, describeNotes, describeQueued, humanBytes, numberLines, pictureType, searchTexts, titleMatches } from './lib.mjs';
 
 const client = new QuillClient(process.env.QUILL_URL || 'http://localhost:8080', process.env.QUILL_TOKEN || '');
 
 const server = new McpServer(
-  { name: 'gilded-quill', version: '0.1.0' },
+  { name: 'gilded-quill', version: '0.2.0' },
   {
     instructions:
       'Tools for the scrolls (LaTeX documents) of a Gilded Quill server. Start with list_scrolls, then get_scroll to see a scroll\'s files. ' +
       'Scrolls can be created, renamed and deleted, and pictures (png, jpg, gif, webp, svg, pdf, eps) uploaded, viewed, moved and deleted; a picture is used from LaTeX with \\includegraphics{path}. Read a file before you change it, and change it with edit_file (an exact text replacement) rather than rewriting the whole file; use write_file for new files. ' +
+      'Notes (margin comments) can be listed, added on a line, replied to and resolved; they never change the text, so they are not held for review. ' +
       'Run compile after changes and fix the errors it reports. A scroll may be set to REVIEW: then edits are queued as proposals and a person must accept them in the app; the tool result says so. ' +
       'Other people may be editing the same scroll at the same moment, so re-read before editing again if something failed.',
   },
@@ -229,6 +230,73 @@ server.registerTool(
   tool(async ({ scroll, proposal_id }) => {
     const { body } = await client.ok('GET', `/api/scrolls/${scroll}/proposals/${proposal_id}`, undefined, 'Reading the proposal');
     return text(`Proposal ${body.id} (${body.kind} ${body.path}): ${body.status}${body.decidedAt ? ` at ${body.decidedAt}` : ''}.`);
+  }),
+);
+
+// ---- notes: margin comment threads (they live beside the text; they never change a file, so no review is needed) --
+
+const noteId = z.string().min(1).describe('The note (thread) id, from list_notes or add_note.');
+const noteText = z.string().min(1).max(2000).describe('The text of the note.');
+
+server.registerTool(
+  'list_notes',
+  {
+    title: 'List notes',
+    description: 'List the notes (margin comment threads) of a scroll: id, file and line, whether resolved, and every message. Only open notes unless include_resolved is true. Optionally only those on one file.',
+    inputSchema: { scroll: scrollId, file: filePath.optional(), include_resolved: z.boolean().optional().describe('Also list resolved notes (default false).') },
+    annotations: { readOnlyHint: true },
+  },
+  tool(async ({ scroll, file, include_resolved }) => {
+    const q = new URLSearchParams();
+    if (file) q.set('file', file);
+    if (include_resolved) q.set('includeResolved', 'true');
+    const { body } = await client.ok('GET', `/api/scrolls/${scroll}/notes${q.size ? `?${q}` : ''}`, undefined, 'Listing notes');
+    return text(describeNotes(body));
+  }),
+);
+
+server.registerTool(
+  'add_note',
+  {
+    title: 'Add a note',
+    description: 'Start a note (a margin comment) on a line, or a range of lines, of a file. Notes do not change the file; they are shown beside the text for everyone. Read the file first so the line numbers are right.',
+    inputSchema: {
+      scroll: scrollId,
+      file: filePath,
+      line: z.number().int().min(1).describe('The line the note is about (1-based).'),
+      end_line: z.number().int().min(1).optional().describe('The last line, inclusive, to cover several lines (default: just `line`).'),
+      text: noteText,
+    },
+  },
+  tool(async ({ scroll, file, line, end_line, text: body }) => {
+    const { body: made } = await client.ok('POST', `/api/scrolls/${scroll}/notes`, { file, line, endLine: end_line, text: body }, 'Adding the note');
+    return text(`Added note ${made.id} on ${file}:${line}${end_line && end_line !== line ? `-${end_line}` : ''}.`);
+  }),
+);
+
+server.registerTool(
+  'reply_to_note',
+  {
+    title: 'Reply to a note',
+    description: 'Add a reply to an existing note (from list_notes).',
+    inputSchema: { scroll: scrollId, note: noteId, text: noteText },
+  },
+  tool(async ({ scroll, note: id, text: body }) => {
+    await client.ok('POST', `/api/scrolls/${scroll}/notes/${enc(id)}/replies`, { text: body }, 'Replying to the note');
+    return text(`Replied to note ${id}.`);
+  }),
+);
+
+server.registerTool(
+  'resolve_note',
+  {
+    title: 'Resolve a note',
+    description: 'Mark a note as resolved, or open it again with resolved: false.',
+    inputSchema: { scroll: scrollId, note: noteId, resolved: z.boolean().optional().describe('true to resolve (default), false to reopen.') },
+  },
+  tool(async ({ scroll, note: id, resolved = true }) => {
+    await client.ok('PUT', `/api/scrolls/${scroll}/notes/${enc(id)}/resolved`, { resolved }, 'Updating the note');
+    return text(`Note ${id} is now ${resolved ? 'resolved' : 'open'}.`);
   }),
 );
 

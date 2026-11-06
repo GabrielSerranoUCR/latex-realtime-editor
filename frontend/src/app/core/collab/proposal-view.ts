@@ -129,3 +129,44 @@ export function reviewProposal(p: Pick<EditProposal, 'kind' | 'path' | 'oldText'
   }
   return current === null ? failed('delete', `Deletes ${p.path}`, `${p.path} is not in the scroll any more.`) : finish('delete', `Deletes ${p.path}`, current, '');
 }
+
+// ---- the same hunks laid out side by side: the file now on the left, the file once accepted on the right
+
+export interface SideCell {
+  no: number;
+  text: string;
+}
+
+export interface SideRow {
+  /** Left: the file now. Missing where the change only adds. */
+  left: (SideCell & { del: boolean }) | null;
+  /** Right: once accepted. Missing where the change only removes. */
+  right: (SideCell & { add: boolean }) | null;
+}
+
+/** Lay a hunk out in two columns: a run of removed lines sits across from the run of added lines that follows it. */
+export function sideBySide(rows: readonly ReviewRow[]): SideRow[] {
+  const out: SideRow[] = [];
+  let i = 0;
+  while (i < rows.length) {
+    const r = rows[i];
+    if (r.type === 'same') {
+      out.push({ left: { no: r.now ?? 0, text: r.text, del: false }, right: { no: r.next ?? 0, text: r.text, add: false } });
+      i++;
+      continue;
+    }
+    const dels: ReviewRow[] = [];
+    const adds: ReviewRow[] = [];
+    while (i < rows.length && rows[i].type === 'del') dels.push(rows[i++]);
+    while (i < rows.length && rows[i].type === 'add') adds.push(rows[i++]);
+    for (let k = 0; k < Math.max(dels.length, adds.length); k++) {
+      const d = dels[k];
+      const a = adds[k];
+      out.push({
+        left: d ? { no: d.now ?? 0, text: d.text, del: true } : null,
+        right: a ? { no: a.next ?? 0, text: a.text, add: true } : null,
+      });
+    }
+  }
+  return out;
+}

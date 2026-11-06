@@ -85,3 +85,14 @@ test('humanBytes is short and readable', () => {
   assert.equal(humanBytes(2048), '2.0 KB');
   assert.equal(humanBytes(5 * 1024 * 1024), '5.0 MB');
 });
+
+test('describeNotes shows place, state and every message', async () => {
+  const { describeNotes } = await import('../src/lib.mjs');
+  assert.equal(describeNotes([]), 'No notes.');
+  const out = describeNotes([
+    { id: 'a', file: 'main.tex', line: 4, quote: 'x', resolved: false, resolvedBy: null, messages: [{ author: 'Ann', text: 'why?' }, { author: 'Bo', text: 'fixed' }] },
+    { id: 'b', file: 'm.tex', line: null, quote: '', resolved: true, resolvedBy: 'Ann', messages: [{ author: 'Ann', text: 'ok' }] },
+  ]);
+  assert.match(out, /a  main\.tex:4  open  on “x”\n {4}Ann: why\?\n {4}Bo: fixed/);
+  assert.match(out, /b  m\.tex \(the text it was about is gone\)  RESOLVED by Ann/);
+});

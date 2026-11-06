@@ -1,10 +1,32 @@
 {
   "name": "quill-mcp",
-  "version": "0.1.0",
-  "private": true,
-  "type": "module",
+  "version": "0.2.0",
   "description": "MCP server that lets an AI assistant read, search, edit and compile the scrolls (LaTeX documents) of The Gilded Quill",
-  "bin": { "quill-mcp": "src/server.mjs" },
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "latex",
+    "gilded-quill",
+    "claude"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/GabrielSerranoUCR/latex-realtime-editor.git",
+    "directory": "mcp"
+  },
+  "homepage": "https://github.com/GabrielSerranoUCR/latex-realtime-editor/tree/main/mcp#readme",
+  "type": "module",
+  "bin": {
+    "quill-mcp": "src/server.mjs"
+  },
+  "files": [
+    "src",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
   "scripts": {
     "start": "node src/server.mjs",
     "test": "node --test test/lib.test.mjs",
@@ -13,5 +35,8 @@
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.32.2",
     "zod": "^4.0.0"
+  },
+  "publishConfig": {
+    "access": "public"
   }
 }

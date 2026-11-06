@@ -8,22 +8,43 @@ Lets an AI assistant (Claude Desktop, Claude Code, or any MCP client) read, sear
 1. Start the app as usual (backend on `:8080`, frontend on `:4200`).
 2. In the app: **Profile → Security → Access tokens → Make a token**. Choose **Allow editing** only if the assistant
    should be able to change scrolls (otherwise it can read and compile). The token is shown once.
-3. Add the server to your MCP client. For Claude Desktop (`claude_desktop_config.json`):
+3. Tell your AI tool to run `npx -y quill-mcp` with `QUILL_URL` (the address you use in the browser) and `QUILL_TOKEN`.
+   Nothing to install: `npx` fetches the server, but each tool has to be told about it in its own way (the token screen in the app shows these with your values filled in):
+
+**Claude Code**
+
+```
+claude mcp add gilded-quill -e QUILL_URL=https://your-quill-server -e QUILL_TOKEN=qq_... -- npx -y quill-mcp
+```
+
+**Codex** (`~/.codex/config.toml`)
+
+```toml
+[mcp_servers.gilded-quill]
+command = "npx"
+args = ["-y", "quill-mcp"]
+env = { QUILL_URL = "https://your-quill-server", QUILL_TOKEN = "qq_..." }
+```
+
+**Antigravity, Claude Desktop and most others** (their MCP configuration JSON; on Windows use `"command": "cmd"` with `"args": ["/c", "npx", "-y", "quill-mcp"]`)
 
 ```json
 {
   "mcpServers": {
     "gilded-quill": {
-      "command": "node",
-      "args": ["/path/to/latex-realtime-editor/mcp/src/server.mjs"],
-      "env": { "QUILL_URL": "http://localhost:4200", "QUILL_TOKEN": "qq_..." }
+      "command": "npx",
+      "args": ["-y", "quill-mcp"],
+      "env": { "QUILL_URL": "https://your-quill-server", "QUILL_TOKEN": "qq_..." }
     }
   }
 }
 ```
 
+While the assistant works in a scroll, a robot 🤖 appears among the scribes at the table for everyone who has it open.
+
+Running from a checkout instead: `npm install` in this folder, then use `"command": "node"` with `"args": ["/path/to/latex-realtime-editor/mcp/src/server.mjs"]`.
+
 `QUILL_URL` is the address you use in the browser (the dev server forwards `/api` to the backend; `http://localhost:8080` also works).
-Run `npm install` once in this folder first.
 
 ## Tools
 
@@ -43,6 +64,7 @@ Run `npm install` once in this folder first.
 | `move_image`, `delete_image` | Rename / move / copy a picture, or delete it (references in `.tex` are not rewritten) |
 | `compile` | Tectonic build with errors by file and line, warnings, and the log tail |
 | `list_proposals`, `get_proposal_status` | Edits waiting for a person, and how one ended |
+| `list_notes`, `add_note`, `reply_to_note`, `resolve_note` | Margin notes: list them (open ones, or all), start one on a line or range of lines, reply, resolve or reopen. Notes never change the text, so they are not held for review |
 
 ## Who decides what reaches the document
 
@@ -67,3 +89,7 @@ expiry, and can be revoked at any time.
 npm test                 # the pure helpers
 node test/e2e.mjs        # drives the real server over stdio against a running backend (with Tectonic)
 ```
+
+## License
+
+MIT, see [LICENSE](LICENSE).

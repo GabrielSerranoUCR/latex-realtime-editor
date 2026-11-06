@@ -27,8 +27,11 @@
       @for (p of everyone(); track p.clientId) {
         <li [style.background]="p.user.color" [title]="p.user.name + (p.clientId === -1 ? ' (you)' : '')">{{ initials(p.user.name) }}</li>
       }
+      @for (name of collab.assistants(); track name) {
+        <li class="bot" [title]="name + ' (AI assistant, working now)'" role="img" [attr.aria-label]="name + ', an AI assistant, is working in this scroll'">🤖</li>
+      }
     </ul>
-    <span class="count">{{ everyone().length }} {{ everyone().length === 1 ? 'scribe' : 'scribes' }} at the table</span>
+    <span class="count">{{ everyone().length + collab.assistants().length }} {{ everyone().length + collab.assistants().length === 1 ? 'scribe' : 'scribes' }} at the table</span>
 
     <button class="me-btn" type="button" (click)="modals.openProfile()" [style.background]="collab.me().color" aria-label="Your tavern profile" title="Your tavern profile">{{ meInitials() }}</button>
     <button class="btn btn--ghost" type="button" data-tour="share" (click)="openShare()">Share</button>
@@ -103,6 +106,13 @@
           } @else {
             <p class="placeholder">{{ collab.synced() ? 'This scroll has no files yet.' : 'Waiting for the table…' }}</p>
           }
+        }
+        @if (collab.pendingEdits() > 0 && canEdit()) {
+          <div class="ai-notice" role="status">
+            <span class="seal" aria-hidden="true">✦</span>
+            <span class="msg"><b>AI changes pending</b> <small>{{ collab.pendingEdits() }} {{ collab.pendingEdits() === 1 ? 'edit is' : 'edits are' }} waiting for your decision</small></span>
+            <button type="button" class="btn btn--sm" (click)="openAiChanges()">View changes</button>
+          </div>
         }
         <footer class="status">
           <span>Ln {{ cursor().line }}, Col {{ cursor().col }}</span><span>LaTeX</span><span>UTF-8</span>
@@ -202,7 +212,8 @@
       <div class="actions"><button class="btn btn--ink" type="button" (click)="renameDlg.close()">Cancel</button><button class="btn" type="submit">Rename</button></div>
     </form>
   </dialog>
-  <qq-ai-dialog [scrollId]="sc.id" [role]="role()" [mode]="sc.aiEditMode ?? 'review'" (modeChange)="reloadScroll()" />
+  <qq-ai-dialog [scrollId]="sc.id" [role]="role()" [mode]="sc.aiEditMode ?? 'review'" (modeChange)="reloadScroll()" (reviewChanges)="openAiChanges()" />
+  <qq-ai-changes [scrollId]="sc.id" [role]="role()" />
   <qq-share-dialog [scrollId]="sc.id" [title]="sc.title" [role]="role()" [meId]="auth.user()?.id ?? null" />
   <qq-insert-image-dialog [scrollId]="sc.id" [assets]="collab.assets()" [where]="insertWhere()" [source]="mainSource()" (insert)="insertSnippet($event)" (finished)="nextInsert()" />
 }

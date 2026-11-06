@@ -23,11 +23,30 @@ export class TokensService {
   revoke = (id: string) => firstValueFrom(this.http.delete<void>(`/api/me/tokens/${id}`));
 }
 
-/** The JSON an MCP client (Claude Desktop and others) needs to start the Gilded Quill server with this token. */
-export function mcpConfig(origin: string, token: string): string {
-  return JSON.stringify(
-    { mcpServers: { 'gilded-quill': { command: 'node', args: ['/path/to/latex-realtime-editor/mcp/src/server.mjs'], env: { QUILL_URL: origin, QUILL_TOKEN: token } } } },
-    null,
-    2,
-  );
+export type Harness = 'claude-code' | 'codex' | 'antigravity' | 'other';
+
+export interface Snippet {
+  id: Harness;
+  label: string;
+  /** Where it goes. */
+  where: string;
+  text: string;
+}
+
+const jsonConfig = (origin: string, token: string): string =>
+  JSON.stringify({ mcpServers: { 'gilded-quill': { command: 'npx', args: ['-y', 'quill-mcp'], env: { QUILL_URL: origin, QUILL_TOKEN: token } } } }, null, 2);
+
+/** How to connect each kind of AI harness to this server with this token: all of them run `npx -y quill-mcp`, each is told in its own way. */
+export function mcpSnippets(origin: string, token: string): Snippet[] {
+  return [
+    { id: 'claude-code', label: 'Claude Code', where: 'Run this in a terminal:', text: `claude mcp add gilded-quill -e QUILL_URL=${origin} -e QUILL_TOKEN=${token} -- npx -y quill-mcp` },
+    {
+      id: 'codex',
+      label: 'Codex',
+      where: 'Add this to ~/.codex/config.toml:',
+      text: `[mcp_servers.gilded-quill]\ncommand = "npx"\nargs = ["-y", "quill-mcp"]\nenv = { QUILL_URL = "${origin}", QUILL_TOKEN = "${token}" }`,
+    },
+    { id: 'antigravity', label: 'Antigravity', where: "Add this to Antigravity's MCP configuration (Manage MCP servers → View raw config):", text: jsonConfig(origin, token) },
+    { id: 'other', label: 'Other', where: 'Most MCP clients take this in their configuration (on Windows, use "cmd" with args ["/c", "npx", "-y", "quill-mcp"]):', text: jsonConfig(origin, token) },
+  ];
 }
