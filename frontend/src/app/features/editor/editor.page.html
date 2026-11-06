@@ -27,8 +27,8 @@
       @for (p of everyone(); track p.clientId) {
         <li [style.background]="p.user.color" [title]="p.user.name + (p.clientId === -1 ? ' (you)' : '')">{{ initials(p.user.name) }}</li>
       }
-      @for (name of collab.assistants(); track name) {
-        <li class="bot" [title]="name + ' (AI assistant, working now)'" role="img" [attr.aria-label]="name + ', an AI assistant, is working in this scroll'">🤖</li>
+      @for (bot of collab.assistants(); track bot.name) {
+        <li class="bot" [title]="bot.name + ' (' + look(bot).label + ', working now)'" role="img" [attr.aria-label]="bot.name + ', an AI assistant (' + look(bot).label + '), is working in this scroll'"><img [src]="look(bot).icon" alt="" width="20" height="20" /></li>
       }
     </ul>
     <span class="count">{{ everyone().length + collab.assistants().length }} {{ everyone().length + collab.assistants().length === 1 ? 'scribe' : 'scribes' }} at the table</span>

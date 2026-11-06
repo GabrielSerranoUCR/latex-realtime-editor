@@ -462,4 +462,9 @@ server.registerTool(
   }),
 );
 
+// Every MCP client announces itself (name, version) when it connects; pass that on so the app can show which AI is at the table.
+server.server.oninitialized = () => {
+  const info = server.server.getClientVersion();
+  if (info?.name) client.agent = String(info.name).slice(0, 60);
+};
 await server.connect(new StdioServerTransport());

@@ -13,7 +13,8 @@
 .sp { flex: 1; }
 .panels { display: flex; gap: 6px; margin-left: 8px; }
 .chipbtn { text-decoration: none; display: inline-block; font: 700 12px var(--font-heading); padding: 4px 12px; border-radius: 999px; background: transparent; color: var(--text-2); border: 1px solid var(--brass-700); cursor: pointer; &.on { background: rgb(var(--brass-rgb) / 0.25); border-color: var(--brass-500); color: var(--candle-400); } }
-.presence .bot { background: var(--parchment-200); font-size: 17px; line-height: 1; animation: bot-pulse 1.6s ease-in-out infinite; }
+.presence .bot { background: var(--parchment-200); line-height: 1; animation: bot-pulse 1.6s ease-in-out infinite; }
+.presence .bot img { display: block; width: 24px; height: 24px; border-radius: 6px; object-fit: contain; }
 @keyframes bot-pulse { 50% { box-shadow: 0 0 0 3px rgb(var(--glow-rgb) / 0.45); } }
 @media (prefers-reduced-motion: reduce) { .presence .bot { animation: none; } }
 .presence { display: flex; list-style: none; margin: 0; padding: 0; li { width: 34px; height: 34px; margin-left: -6px; border-radius: 50%; display: grid; place-content: center; font: 700 12px var(--font-heading); color: var(--ink-900); border: 2px solid var(--parchment-100); } }
