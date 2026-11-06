@@ -19,7 +19,7 @@ function loadPdfJs(): Promise<PdfJs> {
   return pdfjs;
 }
 
-interface Slot { el: HTMLElement; canvas: HTMLCanvasElement; page: Page; scale: number; renderedAt: number }
+interface Slot { el: HTMLElement; canvas: HTMLCanvasElement; text: HTMLElement | null; page: Page; scale: number; renderedAt: number }
 
 /** Shows the last successful PDF; dims it and says so when the latest build failed. Double-click a spot to ask where it came from in the source. */
 @Component({
@@ -74,6 +74,7 @@ export class PdfPreviewComponent implements OnDestroy {
 
   private task: Task | null = null;
   private slots: Slot[] = [];
+  private pagesEl: HTMLElement | null = null;
   private observer: IntersectionObserver | null = null;
   private resizer: ResizeObserver | null = null;
   private width = 0;
@@ -145,7 +146,7 @@ export class PdfPreviewComponent implements OnDestroy {
   private clear(): void {
     this.observer?.disconnect();
     this.slots = [];
-    this.scroller().nativeElement.replaceChildren();
+    this.pagesEl?.replaceChildren();
     void this.task?.destroy();
     this.task = null;
   }
@@ -153,6 +154,11 @@ export class PdfPreviewComponent implements OnDestroy {
   /** One placeholder per page, sized now; the pictures are drawn when they come near the screen. */
   private build(pages: Page[]): void {
     const host = this.scroller().nativeElement;
+    if (!this.pagesEl || this.pagesEl.parentElement !== host) {
+      this.pagesEl = document.createElement('div');
+      this.pagesEl.className = 'pages';
+      host.replaceChildren(this.pagesEl);
+    }
     this.observer?.disconnect();
     this.observer = new IntersectionObserver((entries) => {
       for (const e of entries) if (e.isIntersecting) this.draw(this.slots.find((s) => s.el === e.target));
@@ -163,9 +169,9 @@ export class PdfPreviewComponent implements OnDestroy {
       el.dataset['page'] = String(i + 1);
       const canvas = document.createElement('canvas');
       el.appendChild(canvas);
-      return { el, canvas, page, scale: 1, renderedAt: 0 };
+      return { el, canvas, text: null, page, scale: 1, renderedAt: 0 };
     });
-    host.replaceChildren(...this.slots.map((s) => s.el));
+    this.pagesEl.replaceChildren(...this.slots.map((s) => s.el));
     this.layout();
     for (const s of this.slots) this.observer.observe(s.el);
   }
@@ -190,7 +196,12 @@ export class PdfPreviewComponent implements OnDestroy {
     const height = host.scrollHeight;
     for (const s of this.slots) {
       const base = s.page.getViewport({ scale: 1 });
-      s.scale = pageScale(this.width, base.width, this.zoom());
+      const next = pageScale(this.width, base.width, this.zoom());
+      if (next !== s.scale) {
+        s.text?.remove(); // its words would no longer sit on the page
+        s.text = null;
+      }
+      s.scale = next;
       s.el.style.width = `${base.width * s.scale}px`;
       s.el.style.height = `${base.height * s.scale}px`;
       s.renderedAt = 0;
@@ -214,16 +225,35 @@ export class PdfPreviewComponent implements OnDestroy {
     canvas.height = Math.floor(viewport.height);
     canvas.style.width = '100%';
     canvas.style.height = '100%';
+    const scale = s.scale;
     s.page.render({ canvas, viewport }).promise.then(
       () => {
-        if (s.renderedAt !== s.scale) return;
+        if (s.renderedAt !== scale) return;
         s.canvas.replaceWith(canvas);
         s.canvas = canvas;
+        void this.drawText(s, scale);
       },
       () => {
         s.renderedAt = 0;
       },
     );
+  }
+
+  /** The invisible text over the page: what makes words selectable and copyable. */
+  private async drawText(s: Slot, scale: number): Promise<void> {
+    try {
+      const lib = await loadPdfJs();
+      const layer = document.createElement('div');
+      layer.className = 'textLayer';
+      s.el.style.setProperty('--total-scale-factor', String(scale));
+      await new lib.TextLayer({ textContentSource: s.page.streamTextContent(), container: layer, viewport: s.page.getViewport({ scale }) }).render();
+      if (s.renderedAt !== scale) return; // the page was laid out again meanwhile
+      s.text?.remove();
+      s.el.appendChild(layer);
+      s.text = layer;
+    } catch {
+      /* no text layer: the page is still readable, just not selectable */
+    }
   }
 
   protected onDouble(ev: MouseEvent): void {
@@ -232,7 +262,6 @@ export class PdfPreviewComponent implements OnDestroy {
     if (!pageEl || !slot) return;
     const p = pointOnPage(ev.clientX, ev.clientY, pageEl.getBoundingClientRect(), slot.scale);
     if (!p) return;
-    window.getSelection()?.removeAllRanges();
     this.ping(pageEl, ev.clientX, ev.clientY);
     this.locate.emit({ page: Number(pageEl.dataset['page']), x: p.x, y: p.y });
   }

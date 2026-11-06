@@ -211,6 +211,21 @@ try {
   await until(() => reader.$('qq-pdf-preview .page canvas'), 'reader preview follows the build');
   check("reader's preview shows the owner's build automatically", true);
 
+  // the viewer: pages centred on a bare background, with text that can be selected
+  await until(() => owner.$('qq-pdf-preview .textLayer span'), 'the text layer');
+  const layoutBox = await owner.evaluate(() => { const sc = document.querySelector('qq-pdf-preview .scroller'); const pg = document.querySelector('qq-pdf-preview .page'); const a = sc.getBoundingClientRect(); const b = pg.getBoundingClientRect(); return { dx: Math.abs((a.left + a.width / 2) - (b.left + b.width / 2)), bg: getComputedStyle(sc).backgroundColor, shadow: getComputedStyle(pg).boxShadow }; });
+  check('the page is centred in the preview panel', layoutBox.dx <= 2, `${layoutBox.dx.toFixed(1)}px off`);
+  check('the preview has no background of its own, and the page has a shadow', layoutBox.bg === 'rgba(0, 0, 0, 0)' && layoutBox.shadow !== 'none', layoutBox.bg);
+  {
+    const sp = await owner.evaluate(() => { const el = [...document.querySelectorAll('qq-pdf-preview .textLayer span')].find((e) => e.textContent.includes('Everyone')); const r = el.getBoundingClientRect(); return { x: r.x, y: r.y, w: r.width, h: r.height }; });
+    await owner.mouse.move(sp.x + 1, sp.y + sp.h / 2);
+    await owner.mouse.down();
+    await owner.mouse.move(sp.x + sp.w - 1, sp.y + sp.h / 2, { steps: 8 });
+    await owner.mouse.up();
+    const picked = await owner.evaluate(() => window.getSelection().toString());
+    check('text in the preview can be selected', picked.trim().length > 3, JSON.stringify(picked.slice(0, 40)));
+  }
+
   // ---- double-click the PDF: the caret goes to the source line that made that spot (SyncTeX)
   {
     const room = owner.url().match(/\/scroll\/([0-9a-f-]{36})/)[1];
@@ -696,7 +711,8 @@ try {
   await dpDrop(owner, [{ name: 'dropped-one.png', type: 'image/png', b64: dpB64 }]);
   await dpDialogOpen(owner);
   check('dropping a picture on the editor always opens "Hang a Portrait in Your Scroll"', true);
-  check('the dialog has that picture chosen', (await owner.$eval('dialog.portrait[open] select[name=image]', (e) => e.value)) === 'figures/dropped-one.png');
+  const chosenPic = await owner.$eval('dialog.portrait[open] select[name=image]', (e) => e.value);
+  check('the dialog has that picture chosen', chosenPic === 'figures/dropped-one.png', chosenPic);
   check('and says it goes in at the drop point (line 3)', (await owner.$eval('dialog.portrait[open] .where', (e) => e.textContent)).includes('line 3'));
   check('the picture was added to the Tavern Hall list', (await owner.$$eval('qq-file-tree li.asset .nm', (l) => l.map((x) => x.textContent))).includes('dropped-one.png'));
   await owner.screenshot({ path: `${OUT}/27-drop-prompt.png` });
