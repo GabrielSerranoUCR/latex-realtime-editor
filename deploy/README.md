@@ -15,7 +15,7 @@ In **Settings → Secrets and variables → Actions**:
 
 | Kind | Name | Value |
 |---|---|---|
-| Secret | `COOLIFY_TOKEN` | A Coolify API token (Coolify → *Keys & Tokens* → *API tokens*, with the *deploy* permission; enable the API in *Settings* first) |
+| Secret | `COOLIFY_TOKEN` | A Coolify API token (Coolify → *Keys & Tokens* → *API tokens*, with the *read* and *deploy* permissions (read lets the workflow follow the deployment until it finishes); enable the API in *Settings* first) |
 | Secret | `COOLIFY_URL` | Your Coolify address, e.g. `https://coolify.example.com` |
 | Secret | `COOLIFY_APP_UUID` | The deployed resource's UUID (in its Coolify URL: `…/application/<uuid>`) |
 | Variable | `APP_URL` | The public address of the site, for the final health check (optional) |
