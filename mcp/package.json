@@ -12,10 +12,10 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/GabrielSerranoUCR/latex-realtime-editor.git",
+    "url": "git+https://github.com/GabrielSerranoUCR/the-gilded-quill.git",
     "directory": "mcp"
   },
-  "homepage": "https://github.com/GabrielSerranoUCR/latex-realtime-editor/tree/main/mcp#readme",
+  "homepage": "https://github.com/GabrielSerranoUCR/the-gilded-quill/tree/main/mcp#readme",
   "type": "module",
   "bin": {
     "quill-mcp": "src/server.mjs"

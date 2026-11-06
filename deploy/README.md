@@ -1,4 +1,4 @@
-# Deploying The Gilded Quill to Coolify
+# Deploying The Gilded Quill to Coolify (one example; any Docker host works, see the main README, "Hosting")
 
 ```
 push to main ──► GitHub Actions ──► builds backend + frontend ──► pushes to ghcr.io (private)

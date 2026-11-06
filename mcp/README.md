@@ -40,9 +40,9 @@ env = { QUILL_URL = "https://your-quill-server", QUILL_TOKEN = "qq_..." }
 }
 ```
 
-While the assistant works in a scroll, a robot 🤖 appears among the scribes at the table for everyone who has it open.
+While the assistant works in a scroll, it appears among the scribes at the table for everyone who has it open, with the logo of the AI client (Claude, Codex, Antigravity, or a plain robot for any other). The MCP server announces the client's own name (from the MCP handshake) to the app on its first request, and the app keeps it with the token. The token's name is never used to guess.
 
-Running from a checkout instead: `npm install` in this folder, then use `"command": "node"` with `"args": ["/path/to/latex-realtime-editor/mcp/src/server.mjs"]`.
+Running from a checkout instead: `npm install` in this folder, then use `"command": "node"` with `"args": ["/path/to/the-gilded-quill/mcp/src/server.mjs"]`.
 
 `QUILL_URL` is the address you use in the browser (the dev server forwards `/api` to the backend; `http://localhost:8080` also works).
 

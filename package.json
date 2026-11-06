@@ -1,5 +1,5 @@
 {
-  "name": "latex-realtime-editor",
+  "name": "the-gilded-quill",
   "version": "1.0.0",
   "description": "Real-time collaborative LaTeX editor: Angular + Yjs frontend, Rust (Axum + Yrs + Tectonic) backend",
   "scripts": {
