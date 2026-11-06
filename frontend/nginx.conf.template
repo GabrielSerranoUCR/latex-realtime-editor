@@ -45,10 +45,17 @@ server {
         access_log off;
     }
 
-    # files with a hash in their name never change
-    location ~* \.(?:js|css|woff2?|svg|png|jpe?g|ico|webp)$ {
+    # the app's scripts, styles and fonts have a hash in their name, so they never change under the same name
+    location ~* \.(?:js|css|woff2?)$ {
         expires 1y;
         add_header Cache-Control "public, immutable";
+        add_header X-Content-Type-Options "nosniff" always;
+        try_files $uri =404;
+    }
+
+    # icons and pictures from public/ keep their names when they are replaced (favicon, logos, tavern art): never cache them for long
+    location ~* \.(?:svg|png|jpe?g|ico|webp)$ {
+        add_header Cache-Control "public, max-age=3600, must-revalidate";
         add_header X-Content-Type-Options "nosniff" always;
         try_files $uri =404;
     }
