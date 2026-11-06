@@ -1,3 +1,4 @@
+import { parseAssistants } from './assistant-kind';
 import { Injectable, computed, effect, inject, signal } from '@angular/core';
 import { Awareness } from 'y-protocols/awareness';
 import { PendingImportService } from './pending-import';
@@ -84,7 +85,7 @@ export class CollabService {
   /** How many edits proposed by an assistant wait for a person to accept them (kept up to date by the server). */
   readonly pendingEdits = signal(0);
   /** Names of AI assistants (through MCP) working in this scroll right now. */
-  readonly assistants = signal<string[]>([]);
+  readonly assistants = signal<{ name: string; agent: string | null }[]>([]);
   readonly activeFile = signal<string | null>(null);
   readonly awareness = signal<Awareness | null>(null);
 
@@ -176,7 +177,7 @@ export class CollabService {
       this.lastBuild.set((meta.get('lastBuild') as number | undefined) ?? null);
       this.pendingEdits.set(Number(meta.get('pendingEdits') ?? 0) || 0);
       const bots = meta.get('assistants');
-      this.assistants.set(Array.isArray(bots) ? bots.filter((n): n is string => typeof n === 'string').slice(0, 8) : []);
+      this.assistants.set(parseAssistants(bots));
     };
     const refreshPeers = () => {
       const out: Peer[] = [];

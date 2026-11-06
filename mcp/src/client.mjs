@@ -5,6 +5,12 @@ export class QuillClient {
   constructor(baseUrl, token) {
     this.base = baseUrl.replace(/\/+$/, '');
     this.token = token;
+    /** How the AI client announced itself in the MCP handshake; sent with every request so the app can show and keep it. */
+    this.agent = '';
+  }
+
+  headers(extra = {}) {
+    return { authorization: `Bearer ${this.token}`, ...(this.agent ? { 'x-quill-agent': this.agent } : {}), ...extra };
   }
 
   /** @returns {Promise<{status:number, body:any}>} (never throws for HTTP errors; throws for a missing token) */
@@ -14,7 +20,7 @@ export class QuillClient {
     try {
       res = await fetch(`${this.base}${path}`, {
         method,
-        headers: { authorization: `Bearer ${this.token}`, ...(body === undefined ? {} : { 'content-type': 'application/json' }) },
+        headers: this.headers(body === undefined ? {} : { 'content-type': 'application/json' }),
         body: body === undefined ? undefined : JSON.stringify(body),
       });
     } catch (e) {
@@ -40,7 +46,7 @@ export class QuillClient {
     try {
       res = await fetch(`${this.base}${path}`, {
         method,
-        headers: { authorization: `Bearer ${this.token}`, ...(body === undefined ? {} : { 'content-type': 'application/octet-stream' }) },
+        headers: this.headers(body === undefined ? {} : { 'content-type': 'application/octet-stream' }),
         body,
       });
     } catch (e) {

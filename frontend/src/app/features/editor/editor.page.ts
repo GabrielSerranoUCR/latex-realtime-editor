@@ -6,6 +6,7 @@ import { CompileService, Diagnostic } from '../../core/api/compile.service';
 import { AuthService, apiMessage } from '../../core/auth/auth.service';
 import { ScrollSummary, ScrollsService, canWrite } from '../../core/api/scrolls.service';
 import { CollabService } from '../../core/collab/collab.service';
+import { assistantLook } from '../../core/collab/assistant-kind';
 import { CommentsService } from '../../core/collab/comments.service';
 import { ASSET_DRAG_TYPE, checkUpload, extOf, isAssetName, isLatexIncludable, suggestAssetPath } from '../../core/latex/figure';
 import { ViewedVersion } from '../../core/api/versions.service';
@@ -261,6 +262,8 @@ export class EditorPage {
   }
 
   protected readonly meInitials = computed(() => this.initials(this.collab.me().name));
+
+  protected readonly look = assistantLook;
 
   protected initials(name: string): string {
     return name.replace(/^(Sir|Dame|Lady|Brother)\s+/i, '').split(/\s+/).map((p) => p[0]).slice(0, 2).join('').toUpperCase();

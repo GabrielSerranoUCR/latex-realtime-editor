@@ -3,42 +3,52 @@
 //! on the shared document's `meta` (like the count of waiting edits), so it reaches every open browser at once.
 
 use std::{
-    collections::{BTreeSet, HashMap},
+    collections::{BTreeMap, HashMap},
     sync::Mutex,
     time::{Duration, Instant},
 };
 
 use axum::{extract::{Request, State}, middleware::Next, response::Response};
+use serde::Serialize;
 use uuid::Uuid;
 use yrs::{Any, Map, Transact};
 
-use crate::{AppState, auth::{bearer_token, hash_token}};
+use crate::{AppState, auth::{agent_header, bearer_token, hash_token}};
 
 /// An assistant counts as at work this long after its last request.
 const ACTIVE_FOR: Duration = Duration::from_secs(25);
 
+/// One assistant at the table: the token's name, and the client that announced itself with it (`claude-code`, …).
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct Present {
+    pub name: String,
+    pub agent: Option<String>,
+}
+
+type Room = HashMap<String, (Instant, Option<String>)>;
+
 #[derive(Default)]
 pub struct Assistants {
-    seen: Mutex<HashMap<Uuid, HashMap<String, Instant>>>,
+    seen: Mutex<HashMap<Uuid, Room>>,
 }
 
 impl Assistants {
     /// Note a request; returns the names now at work if that changed the list.
-    fn touch(&self, scroll: Uuid, name: &str) -> Option<Vec<String>> {
+    fn touch(&self, scroll: Uuid, name: &str, agent: Option<&str>) -> Option<Vec<Present>> {
         let mut all = self.seen.lock().unwrap();
         let room = all.entry(scroll).or_default();
         let before = names(room);
-        room.insert(name.to_string(), Instant::now());
+        room.insert(name.to_string(), (Instant::now(), agent.map(str::to_string)));
         let after = names(room);
         (before != after).then_some(after)
     }
 
     /// Drop those idle for too long; returns the names left if that changed the list.
-    fn expire(&self, scroll: Uuid) -> Option<Vec<String>> {
+    fn expire(&self, scroll: Uuid) -> Option<Vec<Present>> {
         let mut all = self.seen.lock().unwrap();
         let room = all.get_mut(&scroll)?;
         let before = names(room);
-        room.retain(|_, at| at.elapsed() < ACTIVE_FOR);
+        room.retain(|_, (at, _)| at.elapsed() < ACTIVE_FOR);
         let after = names(room);
         if room.is_empty() {
             all.remove(&scroll);
@@ -47,11 +57,11 @@ impl Assistants {
     }
 }
 
-fn names(room: &HashMap<String, Instant>) -> Vec<String> {
-    room.keys().cloned().collect::<BTreeSet<_>>().into_iter().collect()
+fn names(room: &Room) -> Vec<Present> {
+    room.iter().map(|(name, (_, agent))| (name.clone(), agent.clone())).collect::<BTreeMap<_, _>>().into_iter().map(|(name, agent)| Present { name, agent }).collect()
 }
 
-async fn publish(state: &AppState, scroll: Uuid, list: Vec<String>) {
+async fn publish(state: &AppState, scroll: Uuid, list: Vec<Present>) {
     let json = serde_json::to_string(&list).unwrap_or_else(|_| "[]".into());
     let Ok(any) = Any::from_json(&json) else { return };
     let _ = state
@@ -74,10 +84,12 @@ fn scroll_of(path: &str) -> Option<Uuid> {
 /// Middleware: a request with an access token on a scroll means an assistant is working in it.
 pub async fn track(State(state): State<AppState>, req: Request, next: Next) -> Response {
     if let (Some(scroll), Some(token)) = (scroll_of(req.uri().path()), bearer_token(req.headers())) {
-        let name: Option<String> = sqlx::query_scalar("SELECT name FROM api_tokens WHERE token_hash = $1").bind(hash_token(&token)).fetch_optional(&state.db).await.ok().flatten();
-        if let Some(name) = name {
+        let hash = hash_token(&token);
+        let row: Option<(String, Option<String>)> = sqlx::query_as("SELECT name, agent FROM api_tokens WHERE token_hash = $1").bind(&hash).fetch_optional(&state.db).await.ok().flatten();
+        if let Some((name, saved)) = row {
+            let agent = saved.or_else(|| agent_header(req.headers()));
             let name = if name.trim().is_empty() { "Assistant".to_string() } else { name };
-            if let Some(list) = state.assistants.touch(scroll, &name) {
+            if let Some(list) = state.assistants.touch(scroll, &name, agent.as_deref()) {
                 publish(&state, scroll, list).await;
             }
             let state = state.clone();
@@ -109,9 +121,10 @@ mod tests {
     fn the_list_changes_only_when_someone_arrives_or_leaves() {
         let a = Assistants::default();
         let s = Uuid::new_v4();
-        assert_eq!(a.touch(s, "Claude"), Some(vec!["Claude".into()]));
-        assert_eq!(a.touch(s, "Claude"), None);
-        assert_eq!(a.touch(s, "Bot"), Some(vec!["Bot".into(), "Claude".into()]));
+        let p = |name: &str, agent: Option<&str>| Present { name: name.into(), agent: agent.map(Into::into) };
+        assert_eq!(a.touch(s, "Claude", Some("claude-code")), Some(vec![p("Claude", Some("claude-code"))]));
+        assert_eq!(a.touch(s, "Claude", Some("claude-code")), None);
+        assert_eq!(a.touch(s, "Bot", None), Some(vec![p("Bot", None), p("Claude", Some("claude-code"))]));
         assert_eq!(a.expire(s), None); // both are fresh
     }
 }

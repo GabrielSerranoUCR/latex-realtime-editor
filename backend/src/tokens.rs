@@ -30,6 +30,8 @@ pub struct TokenInfo {
     pub created_at: DateTime<Utc>,
     pub last_used_at: Option<DateTime<Utc>>,
     pub expires_at: Option<DateTime<Utc>>,
+    /// The MCP client that announced itself with this token (`claude-code`, …), once it has.
+    pub agent: Option<String>,
 }
 
 #[derive(Debug, Serialize)]
@@ -44,7 +46,7 @@ pub struct NewToken {
 /// `GET /api/me/tokens`: the tokens that still work.
 pub async fn list(State(state): State<AppState>, SessionUser(user): SessionUser) -> Result<Json<Vec<TokenInfo>>, AppError> {
     let rows = sqlx::query_as::<_, TokenInfo>(
-        "SELECT id, name, write, created_at, last_used_at, expires_at FROM api_tokens
+        "SELECT id, name, write, created_at, last_used_at, expires_at, agent FROM api_tokens
           WHERE user_id = $1 AND revoked_at IS NULL AND (expires_at IS NULL OR expires_at > now()) ORDER BY created_at DESC",
     )
     .bind(user.id)
@@ -79,7 +81,7 @@ pub async fn create(State(state): State<AppState>, SessionUser(user): SessionUse
     let info = sqlx::query_as::<_, TokenInfo>(
         "INSERT INTO api_tokens (id, user_id, name, token_hash, write, expires_at)
          VALUES ($1, $2, $3, $4, $5, CASE WHEN $6::int IS NULL THEN NULL ELSE now() + make_interval(days => $6::int) END)
-         RETURNING id, name, write, created_at, last_used_at, expires_at",
+         RETURNING id, name, write, created_at, last_used_at, expires_at, agent",
     )
     .bind(Uuid::new_v4())
     .bind(user.id)

@@ -78,6 +78,14 @@ impl FromRequestParts<AppState> for ViaToken {
     }
 }
 
+/// What an MCP client calls itself (`x-quill-agent`, from its `initialize` handshake): plain text, bounded.
+pub fn agent_header(headers: &HeaderMap) -> Option<String> {
+    let v = headers.get("x-quill-agent")?.to_str().ok()?;
+    let v: String = v.chars().filter(|c| c.is_ascii_alphanumeric() || matches!(c, '-' | '_' | '.' | ' ')).take(60).collect();
+    let v = v.trim().to_string();
+    (!v.is_empty()).then_some(v)
+}
+
 pub fn bearer_token(headers: &HeaderMap) -> Option<String> {
     let value = headers.get(header::AUTHORIZATION)?.to_str().ok()?;
     let token = value.strip_prefix("Bearer ").or_else(|| value.strip_prefix("bearer "))?.trim();
@@ -104,13 +112,19 @@ fn read_only_may(method: &Method, path: &str) -> bool {
 }
 
 async fn user_from_api_token(parts: &Parts, state: &AppState, token: &str) -> Result<AuthUser, AppError> {
-    let row: Option<(Uuid, bool, Uuid)> = sqlx::query_as("SELECT id, write, user_id FROM api_tokens WHERE token_hash = $1 AND revoked_at IS NULL AND (expires_at IS NULL OR expires_at > now())")
+    let row: Option<(Uuid, bool, Uuid, Option<String>)> = sqlx::query_as("SELECT id, write, user_id, agent FROM api_tokens WHERE token_hash = $1 AND revoked_at IS NULL AND (expires_at IS NULL OR expires_at > now())")
         .bind(hash_token(token))
         .fetch_optional(&state.db)
         .await?;
-    let (token_id, write, user_id) = row.ok_or(AppError::Unauthorized)?;
+    let (token_id, write, user_id, agent) = row.ok_or(AppError::Unauthorized)?;
     if !write && !read_only_may(&parts.method, parts.uri.path()) {
         return Err(AppError::Forbidden);
+    }
+    // the first time an MCP client announces itself, keep what it said (later announcements do not overwrite it)
+    if agent.is_none() {
+        if let Some(announced) = agent_header(&parts.headers) {
+            sqlx::query("UPDATE api_tokens SET agent = $2 WHERE id = $1 AND agent IS NULL").bind(token_id).bind(announced).execute(&state.db).await?;
+        }
     }
     // note when it was last used, but not on every request
     sqlx::query("UPDATE api_tokens SET last_used_at = now() WHERE id = $1 AND (last_used_at IS NULL OR last_used_at < now() - interval '1 minute')").bind(token_id).execute(&state.db).await?;
