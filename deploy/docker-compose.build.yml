@@ -1,0 +1,15 @@
+# Build the two images on the server itself instead of pulling them from a registry (any Docker host, any provider):
+#
+#   cd deploy
+#   cp .env.example .env     # then edit it: POSTGRES_PASSWORD and QUILL_ALLOWED_ORIGIN at least; IMAGE_REPO=quill is fine
+#   docker compose -f docker-compose.yml -f docker-compose.build.yml up -d --build
+services:
+  backend:
+    build: ../backend
+    pull_policy: build
+  frontend:
+    build: ../frontend
+    pull_policy: build
+    # reachable from this machine only: point your HTTPS reverse proxy at 127.0.0.1:8080 (see the README, "Hosting")
+    ports:
+      - "127.0.0.1:8080:8080"
