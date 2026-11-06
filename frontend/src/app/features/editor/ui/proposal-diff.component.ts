@@ -41,10 +41,10 @@ import { Review, SideRow, sideBySide } from '../../../core/collab/proposal-view'
   styles: `
     :host { display: block; }
     .diff { max-height: 56vh; overflow: auto; background: var(--parchment-100); border: 1px solid rgb(var(--brass7-rgb) / 0.5); border-radius: 4px; font: 400 13px/1.5 var(--font-mono); color: var(--ink-900); outline: none; &:focus-visible { box-shadow: 0 0 0 2px var(--candle-400); } }
-    .cols { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); position: sticky; top: 0; z-index: 2; background: var(--parchment-200); border-bottom: 1px solid rgb(var(--brass7-rgb) / 0.5); font: 700 11px var(--font-heading); letter-spacing: 0.12em; text-transform: uppercase; color: var(--brass-700); span { padding: 4px 10px; } span:first-child { background: rgb(179 54 43 / 0.12); } span + span { background: rgb(47 125 50 / 0.14); } span + span { border-left: 3px solid var(--brass-700); } }
+    .cols { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); position: sticky; top: 0; z-index: 2; background: var(--parchment-200); border-bottom: 1px solid rgb(var(--brass7-rgb) / 0.5); font: 700 11px var(--font-heading); letter-spacing: 0.12em; text-transform: uppercase; color: var(--brass-700); span { padding: 4px 10px; } span + span { border-left: 1px solid rgb(var(--brass7-rgb) / 0.5); } }
     .hunk { padding: 2px 10px; background: rgb(var(--brass7-rgb) / 0.16); color: var(--ink-600); }
     .d-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
-    .cell { display: flex; min-width: 0; & + .cell { border-left: 3px solid var(--brass-700); }
+    .cell { display: flex; min-width: 0; & + .cell { border-left: 1px solid rgb(var(--brass7-rgb) / 0.5); }
       &.add { background: rgb(47 125 50 / 0.22); color: #1d5a21; } &.del { background: rgb(179 54 43 / 0.2); color: #8c2a21; } &.gap { background: rgb(var(--brass7-rgb) / 0.08); } }
     .no { flex: none; width: 38px; padding-right: 8px; text-align: right; color: var(--ink-600); opacity: 0.75; user-select: none; }
     .tx { white-space: pre-wrap; overflow-wrap: anywhere; padding-right: 10px; }
