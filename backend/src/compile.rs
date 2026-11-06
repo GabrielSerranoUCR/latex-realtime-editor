@@ -21,8 +21,6 @@ pub struct Diagnostic {
 pub struct CompileResult {
     pub success: bool,
     pub pdf: Option<Vec<u8>>,
-    /// SyncTeX data (gzip) of the same build, with project-relative file names: lets the preview find the source of a click.
-    pub synctex: Option<Vec<u8>>,
     pub log: String,
     pub diagnostics: Vec<Diagnostic>,
     pub duration: Duration,
@@ -89,7 +87,7 @@ impl Compiler {
         fs::create_dir_all(&out).await?;
 
         let child = Command::new(&self.bin)
-            .args(["-X", "compile", "--synctex", "--outdir"])
+            .args(["-X", "compile", "--outdir"])
             .arg(&out)
             .arg(main)
             .current_dir(dir.path())
@@ -111,20 +109,11 @@ impl Compiler {
             Ok(b) if exited_ok => Some(b),
             _ => None,
         };
-        let synctex = if pdf.is_some() {
-            let names: Vec<String> = files.iter().map(|(n, _)| n.clone()).chain(assets.iter().map(|(n, _)| n.clone())).collect();
-            match fs::read(out.join(format!("{stem}.synctex.gz"))).await.ok().and_then(|gz| crate::synctex::unpack(&gz)) {
-                Some(text) => Some(crate::synctex::pack(&crate::synctex::relativize(&text, &names))),
-                None => None,
-            }
-        } else {
-            None
-        };
         let diagnostics = parse_diagnostics(&log);
         if pdf.is_none() && diagnostics.iter().all(|d| d.severity != "error") {
             log.push_str("\nerror: the engine produced no PDF\n");
         }
-        Ok(CompileResult { success: pdf.is_some(), pdf, synctex, log, diagnostics, duration: started.elapsed() })
+        Ok(CompileResult { success: pdf.is_some(), pdf, log, diagnostics, duration: started.elapsed() })
     }
 }
 

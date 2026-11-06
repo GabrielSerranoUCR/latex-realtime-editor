@@ -73,29 +73,6 @@ impl FsStore {
         write_atomic(&self.doc_path(room), bytes).await
     }
 
-    pub fn synctex_path(&self, room: &str) -> PathBuf {
-        self.root.join("pdfs").join(room).join("latest.synctex.gz")
-    }
-
-    /// The SyncTeX data of the latest build; a build without it removes the old one (it would point at the wrong lines).
-    pub async fn save_synctex(&self, room: &str, bytes: Option<&[u8]>) -> std::io::Result<()> {
-        match bytes {
-            Some(b) => write_atomic(&self.synctex_path(room), b).await,
-            None => match fs::remove_file(self.synctex_path(room)).await {
-                Err(e) if e.kind() != std::io::ErrorKind::NotFound => Err(e),
-                _ => Ok(()),
-            },
-        }
-    }
-
-    pub async fn load_synctex(&self, room: &str) -> std::io::Result<Option<Vec<u8>>> {
-        match fs::read(self.synctex_path(room)).await {
-            Ok(b) => Ok(Some(b)),
-            Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(None),
-            Err(e) => Err(e),
-        }
-    }
-
     pub async fn save_pdf(&self, room: &str, bytes: &[u8]) -> std::io::Result<()> {
         write_atomic(&self.pdf_path(room), bytes).await
     }

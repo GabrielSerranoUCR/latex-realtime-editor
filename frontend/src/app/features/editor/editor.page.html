@@ -169,7 +169,7 @@
           <button type="button" class="btn btn--ghost" (click)="popout.dock('preview')">Bring it back</button>
         </section>
       } @else {
-        <qq-pdf-preview class="panel preview" [pdfUrl]="compiler.pdfUrl()" [state]="compiler.state()" [stale]="compiler.stale()" (locate)="onPdfLocate($event)" (popOut)="onPopOut('preview')" (hide)="layout.setVisible('preview', false)" />
+        <qq-pdf-preview class="panel preview" [pdfUrl]="compiler.pdfUrl()" [state]="compiler.state()" [stale]="compiler.stale()" (popOut)="onPopOut('preview')" (hide)="layout.setVisible('preview', false)" />
       }
     }
     @if (grid().empty) {
