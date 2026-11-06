@@ -1952,7 +1952,10 @@ async fn an_assistants_token_may_only_add_pictures_while_a_scroll_is_held_for_re
     assert_eq!(srv.with_token(Method::POST, &format!("{base}/asset-moves"), &token, Some(json!({"from": "figures/a.png", "to": "figures/b.png"}))).await.status, 409);
     assert_eq!(srv.with_token(Method::POST, &format!("{base}/asset-moves"), &token, Some(json!({"from": "figures/a.png", "to": "figures/b.png", "copy": true}))).await.status, 200);
     assert_eq!(srv.raw_with_token(Method::DELETE, &pic, &token, vec![]).await.status, 409);
-    assert_eq!(srv.with_token(Method::DELETE, &base, &token, None).await.status, 409, "the whole scroll cannot be deleted behind the queue");
+    // only an owner may delete a scroll at all (a scribe's token is simply refused), so use the owner's token to see the queue's rule
+    let owner_token = srv.post("/api/me/tokens", Some(&owner), json!({"name": "Claude (owner)", "write": true})).await.json["token"].as_str().unwrap().to_string();
+    assert_eq!(srv.with_token(Method::DELETE, &base, &token, None).await.status, 403, "a scribe's token cannot delete the scroll");
+    assert_eq!(srv.with_token(Method::DELETE, &base, &owner_token, None).await.status, 409, "the whole scroll cannot be deleted behind the queue");
     // a person is never held back
     assert_eq!(srv.raw(Method::PUT, &pic, Some(&owner), png()).await.status, 200);
     assert_eq!(srv.get(&base, Some(&owner)).await.status, 200);
