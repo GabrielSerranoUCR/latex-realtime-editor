@@ -41,7 +41,7 @@ interface Row {
   styles: `
     :host { position: relative; display: inline-block; }
     .chipbtn { font: 700 12px var(--font-heading); padding: 4px 12px; border-radius: 999px; background: transparent; color: var(--text-2); border: 1px solid var(--brass-700); cursor: pointer; &.on { background: rgb(var(--brass-rgb) / 0.25); border-color: var(--brass-500); color: var(--candle-400); } }
-    .pop { position: absolute; z-index: 40; right: 0; top: calc(100% + 10px); width: 320px; padding: 14px 16px 10px; background: var(--parchment-100); color: var(--ink-900); border: 3px solid var(--wood-900); border-radius: 6px; box-shadow: 0 16px 32px rgb(0 0 0 / 0.6); }
+    .pop { position: absolute; z-index: 50; right: 0; top: calc(100% + 10px); width: 320px; padding: 14px 16px 10px; background: var(--parchment-100); color: var(--ink-900); border: 3px solid var(--wood-900); border-radius: 6px; box-shadow: 0 16px 32px rgb(0 0 0 / 0.6); }
     h3 { margin: 0 0 8px; font: 700 12px var(--font-heading); letter-spacing: 0.16em; text-transform: uppercase; color: var(--brass-700); }
     .row { display: flex; align-items: center; gap: 10px; padding: 6px 0; }
     .ico { width: 22px; text-align: center; color: var(--ink-600); }

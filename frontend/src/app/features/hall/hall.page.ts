@@ -258,7 +258,7 @@ export class HallPage {
     this.scroll.set(null);
     try {
       this.scroll.set(await this.scrolls.get(id));
-      this.collab.connect(id);
+      this.collab.connect(id, undefined, true); // this window only looks: it is not another scribe at the table
     } catch (e) {
       // the session ended: the "session ended" screen takes over; there is nothing to redirect
       if ((e as { status?: number })?.status === 401) return;

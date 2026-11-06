@@ -97,6 +97,7 @@ try {
   await until(async () => (await editorText(owner)).includes('documentclass'), 'starter file synced');
   check('starter document is seeded and shown', true);
   check('title and role are shown', (await owner.$eval('.doc h1', (e) => e.textContent)).includes('Thesis') && (await owner.$eval('.doc h1 .chip', (e) => e.textContent)).trim() === 'owner');
+  check('the ink log starts hidden', (await owner.$('qq-ink-log')) === null);
   check('connection indicator says connected', (await owner.$eval('.state', (e) => e.textContent)).includes('Saved to the cellar') || (await owner.$eval('.state', (e) => e.textContent)).includes('Joining'));
 
   // ---- type into the editor, autocomplete, compile with REAL Tectonic
@@ -181,6 +182,13 @@ try {
   check('live edits keep flowing to the reader', true);
   await until(async () => (await owner.$$eval('.presence li', (l) => l.length)) >= 2, 'presence shows two scribes');
   check('presence shows both scribes', true);
+  // show the ink log (it starts hidden) for the compile checks that follow
+  await owner.evaluate(() => document.querySelector('qq-panels-menu button.chipbtn').click());
+  await owner.waitForSelector('qq-panels-menu .pop');
+  await owner.evaluate(() => document.querySelectorAll('qq-panels-menu input[role=switch]')[3].click());
+  await owner.waitForSelector('qq-ink-log');
+  await owner.keyboard.press('Escape');
+  await owner.evaluate(() => document.body.click());
 
   await owner.keyboard.down('Control'); await owner.keyboard.press('Enter'); await owner.keyboard.up('Control');
   await until(async () => (await owner.$eval('qq-ink-log .chip', (e) => e.textContent)).includes('Compiled'), 'compile finishes', 120000);
@@ -370,6 +378,7 @@ try {
   await openPanels(owner);
   const pStatuses = await owner.$$eval('qq-panels-menu .row', (l) => l.map((r) => r.innerText.replace(/\s+/g, ' ')));
   check('the Panels menu lists the four panels with their state', pStatuses.length === 4 && /tavern hall/i.test(pStatuses[0]) && pStatuses[0].includes('Docked') && /ink log/i.test(pStatuses[3]), pStatuses.join(' | '));
+  check('the Panels popover is drawn over the menu bar below it (its top row is not covered)', await owner.evaluate(() => { const r = document.querySelector('qq-panels-menu .pop h3').getBoundingClientRect(); const top = document.elementFromPoint(r.x + 10, r.y + r.height / 2); return !!top?.closest('.pop'); }));
   await owner.screenshot({ path: `${OUT}/17-panels-menu.png` });
   await sw(owner, 0);
   await owner.waitForSelector('nav.rail');
@@ -403,11 +412,31 @@ try {
   check('a saved layout is back after a reload (Tavern Hall 296 px, no ink log)', pnear((await pbox(owner, 'qq-file-tree')).w, 296) && (await owner.$('qq-ink-log')) === null, `${(await pbox(owner, 'qq-file-tree')).w}px`);
   await openPanels(owner);
   await foot(owner, 0);
-  await owner.waitForSelector('qq-ink-log');
-  check('"Reset to default layout" restores everything', pnear((await pbox(owner, 'qq-file-tree')).w, 236) && pnear((await pbox(owner, 'qq-ink-log')).h, 170));
+  await until(async () => pnear((await pbox(owner, 'qq-file-tree')).w, 236), 'tree back to its default width');
+  check('"Reset to default layout" restores the default (Tavern Hall 236 px, ink log hidden)', pnear((await pbox(owner, 'qq-file-tree')).w, 236) && (await owner.$('qq-ink-log')) === null);
   await owner.reload();
   await owner.waitForSelector('qq-file-tree');
-  check('and forgets the saved layout', pnear((await pbox(owner, 'qq-file-tree')).w, 236) && (await owner.$('qq-ink-log')) !== null);
+  check('and forgets the saved layout', pnear((await pbox(owner, 'qq-file-tree')).w, 236) && (await owner.$('qq-ink-log')) === null);
+
+  // a failed build says so, and offers the ink log (hidden by default)
+  await owner.click('.cm-content');
+  await owner.keyboard.down(MOD_KEY);
+  await owner.keyboard.press(MOD_KEY === 'Meta' ? 'ArrowUp' : 'Home');
+  await owner.keyboard.up(MOD_KEY);
+  for (let i = 0; i < 3; i++) await owner.keyboard.press('ArrowDown');
+  await owner.keyboard.type('\\zzfailnow');
+  await owner.keyboard.down('Control'); await owner.keyboard.press('Enter'); await owner.keyboard.up('Control');
+  await until(async () => (await owner.$eval('qq-toasts .toast', (e) => e.innerText).catch(() => '')).includes('Build failed'), 'a "Build failed" message', 120000);
+  check('a failed build says "Build failed" with a "View ink log" button', (await owner.$eval('qq-toasts .toast .act', (e) => e.textContent)).includes('View ink log') && (await owner.$('qq-ink-log')) === null);
+  await owner.click('qq-toasts .toast .act');
+  await owner.waitForSelector('qq-ink-log');
+  check('"View ink log" opens the ink log, showing the errors', (await owner.$eval('qq-ink-log', (e) => e.innerText)).toLowerCase().includes('zzfailnow') || (await owner.$$('qq-ink-log .chip--bad')).length > 0);
+  await owner.click('.cm-content');
+  for (let i = 0; i < 20 && (await editorText(owner)).includes('zzfailnow'); i++) {
+    await owner.keyboard.down(MOD_KEY); await owner.keyboard.press('z'); await owner.keyboard.up(MOD_KEY);
+    await sleep(60);
+  }
+  check('the failing command is undone again', !(await editorText(owner)).includes('zzfailnow'));
 
   // every panel hidden: a hint, and a way back
   await openPanels(owner);
@@ -422,6 +451,8 @@ try {
   // ---- pop the preview out into its own window
   const popWinLogClick = () => logWin.evaluate(() => [...document.querySelectorAll('button.line.bad')].find((b) => !b.disabled)?.click());
   const pNextPage = () => browser.waitForTarget((t) => t.url().includes('/popout/'), { timeout: 15000 }).then((t) => t.page());
+  const seats = (page) => page.$$eval('.presence li:not(.bot)', (l) => l.length);
+  const seatsBefore = await seats(owner);
   await openPanels(owner);
   let pWaiting = pNextPage();
   await popBtn(owner, 2);
@@ -433,6 +464,8 @@ try {
   check('the popped-out window shows the PDF and says it is live-linked', (await popWin.title()).includes('Scroll Preview') && (await popWin.$eval('.win', (e) => e.innerText)).includes('Dock back'));
   await until(async () => (await popWin.$eval('.foot', (e) => e.innerText)).includes('Live-linked'), 'popup linked');
   check('the popup is live-linked to the main window', true);
+  await sleep(1500);
+  check('opening the preview in its own window does not add a scribe to the table', (await seats(owner)) === seatsBefore, `${seatsBefore} before, ${await seats(owner)} after`);
   const prevSrc = await popWin.$eval('qq-pdf-preview iframe', (e) => e.getAttribute('src'));
   await owner.bringToFront();
   await owner.click('.cm-content');
@@ -444,6 +477,19 @@ try {
   await until(() => popWin.isClosed(), 'popup closes after Dock back', 6000);
   await owner.waitForSelector('qq-pdf-preview');
   check('"Dock back" closes the window and puts the preview back', (await owner.$('.away')) === null);
+  {
+    // the Tavern Hall in a window of its own is not another scribe either
+    await openPanels(owner);
+    const hallWait = browser.waitForTarget((t) => t.url().includes('/hall'), { timeout: 15000 }).then((t) => t.page());
+    await popBtn(owner, 0);
+    const hallWin = await hallWait;
+    await hallWin.waitForSelector('.map', { timeout: 15000 });
+    await sleep(1500);
+    check('opening the Tavern Hall in its own window does not add a scribe to the table', (await seats(owner)) === seatsBefore, `${seatsBefore} before, ${await seats(owner)} after`);
+    await hallWin.close();
+    await owner.bringToFront();
+    await owner.evaluate(() => document.body.click());
+  }
 
   // closing the window by hand docks it again too
   await openPanels(owner);
@@ -1212,6 +1258,7 @@ try {
   await owner.mouse.move(target.x + target.w / 2 - 40, target.y + target.h / 2 - 30, { steps: 12 }); // onto the other table, a little up-left of its middle
   await owner.mouse.up();
   await sleep(500);
+  check('dragging a table does not select the page', await owner.evaluate(() => window.getSelection().isCollapsed || window.getSelection().toString() === ''));
   const moved = await tableBox(owner, 'drafts');
   const still = await tableBox(owner, mainName);
   const apart = Math.hypot(moved.x + moved.w / 2 - (still.x + still.w / 2), moved.y + moved.h / 2 - (still.y + still.h / 2));

@@ -525,6 +525,23 @@ export class EditorPage {
     await this.compiler.compile(room, open && open.endsWith('.tex') ? open : null);
     const built = this.compiler.pdfBuiltAt();
     if (this.compiler.state() === 'ok' && built) this.collab.announceBuild(built);
+    if (this.compiler.state() === 'failed') this.buildFailed();
+  }
+
+  private failedToast: number | null = null;
+
+  /** Say the build failed, and (when the ink log is not already open beside the text) offer to show it. */
+  private buildFailed(): void {
+    if (this.failedToast !== null) this.toasts.dismiss(this.failedToast);
+    const docked = this.layout.visible().log && !this.layout.popped().log;
+    const action = docked ? undefined : { label: 'View ink log', run: () => this.showInkLog() };
+    this.failedToast = this.toasts.show('Build failed.', 'bad', 10_000, action);
+  }
+
+  /** Open the ink log: bring its window forward if it is popped out, else dock it. */
+  protected showInkLog(): void {
+    if (this.layout.popped().log) this.popout.open('log'); // opening it again brings its window forward
+    else this.layout.setVisible('log', true);
   }
 
   protected jump(d: Diagnostic): void {

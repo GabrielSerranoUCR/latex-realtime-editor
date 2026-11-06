@@ -88,7 +88,7 @@ export class PopoutPage {
       await this.router.navigateByUrl('/404', { replaceUrl: true });
       return;
     }
-    if (this.which() === 'preview') this.collab.connect(id);
+    if (this.which() === 'preview') this.collab.connect(id, undefined, true);
     if (typeof BroadcastChannel === 'undefined') return;
     this.channel?.close();
     this.channel = new BroadcastChannel(channelName(id));

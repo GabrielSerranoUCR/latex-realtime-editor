@@ -19,13 +19,14 @@ export interface PanelLayout {
 
 export const DEFAULT_LAYOUT: PanelLayout = {
   sizes: { treeW: 236, previewW: 460, logH: 170 },
-  visible: { tree: true, source: true, preview: true, log: true },
+  visible: { tree: true, source: true, preview: true, log: false },
 };
 
+/** Smallest sizes. There is no largest size: a panel may grow until the others would fall below their own smallest (see `maxSize`). */
 export const LIMITS = {
-  treeW: [160, 480],
-  previewW: [280, 1000],
-  logH: [84, 640],
+  treeW: [160, Infinity],
+  previewW: [280, Infinity],
+  logH: [84, Infinity],
 } as const;
 
 /** A hidden Tavern Hall folds into a narrow rail. */
@@ -45,31 +46,51 @@ export interface Space {
 
 const between = (v: number, [lo, hi]: readonly [number, number] | readonly number[]): number => Math.min(hi, Math.max(lo, Math.round(v)));
 
+/** What is taken by everything that is not the panel in question (workspace padding, handles, the rail, the editor's own room). */
+const SIDE_PADDING = 24;
+
 /**
- * Keep sizes inside their limits and, when the workspace size is known, leave the source editor its room.
- * `changed` is the size the scribe is dragging: the other column gives way before it does.
+ * The most a panel may take: the workspace minus what the others need at their smallest.
+ * Unknown workspace size (before the first layout): no limit beyond a sanity cap.
+ */
+export function maxSize(key: keyof LayoutSizes, space: Space | null, visible: Visibility): number {
+  const cap = 20000;
+  if (!space || space.w <= 0 || space.h <= 0) return cap;
+  if (key === 'logH') return Math.max(LIMITS.logH[0], space.h - SIDE_PADDING - MIN_TOP_H - HANDLE);
+  const treeTaken = visible.tree ? LIMITS.treeW[0] + HANDLE : RAIL_W;
+  const rightTaken = visible.preview ? LIMITS.previewW[0] + HANDLE : 0;
+  const rest = space.w - SIDE_PADDING - MIN_EDITOR_W - HANDLE; // what is left for the panel and what stands beside it
+  if (key === 'treeW') return Math.max(LIMITS.treeW[0], rest - rightTaken);
+  return Math.max(LIMITS.previewW[0], rest - treeTaken);
+}
+
+/**
+ * Keep sizes at or above their minimum and, when the workspace size is known, leave the source editor its room.
+ * `changed` is the size the scribe is dragging: it may grow until the others reach their minimum, and no further.
  */
 export function clampSizes(sizes: LayoutSizes, space: Space | null, visible: Visibility, changed?: keyof LayoutSizes): LayoutSizes {
-  let treeW = between(sizes.treeW, LIMITS.treeW);
-  let previewW = between(sizes.previewW, LIMITS.previewW);
-  let logH = between(sizes.logH, LIMITS.logH);
+  const floor = (v: number, [lo]: readonly [number, number]): number => Math.max(lo, Math.round(Number.isFinite(v) ? v : lo));
+  let treeW = floor(sizes.treeW, LIMITS.treeW);
+  let previewW = floor(sizes.previewW, LIMITS.previewW);
+  let logH = floor(sizes.logH, LIMITS.logH);
+  if (changed === 'treeW') treeW = Math.min(treeW, maxSize('treeW', space, visible));
+  if (changed === 'previewW') previewW = Math.min(previewW, maxSize('previewW', space, visible));
   if (space && space.w > 0) {
     // 24px of workspace padding, plus a handle for each column that is shown beside the editor
-    const used = (): number => 24 + (visible.tree ? treeW + HANDLE : RAIL_W) + MIN_EDITOR_W + (visible.preview ? previewW + HANDLE : 0);
-    const over = used() - space.w;
-    if (over > 0) {
+    const used = (): number => SIDE_PADDING + (visible.tree ? treeW + HANDLE : RAIL_W) + MIN_EDITOR_W + (visible.preview ? previewW + HANDLE : 0);
+    if (used() - space.w > 0) {
       const shrinkPreview = () => (previewW = Math.max(LIMITS.previewW[0], previewW - Math.max(0, used() - space.w)));
       const shrinkTree = () => (treeW = Math.max(LIMITS.treeW[0], treeW - Math.max(0, used() - space.w)));
       if (changed === 'previewW') {
-        shrinkPreview();
         shrinkTree();
+        shrinkPreview();
       } else {
-        shrinkTree();
         shrinkPreview();
+        shrinkTree();
       }
     }
   }
-  if (space && space.h > 0) logH = Math.max(LIMITS.logH[0], Math.min(logH, space.h - 24 - MIN_TOP_H - HANDLE));
+  if (space && space.h > 0) logH = Math.max(LIMITS.logH[0], Math.min(logH, maxSize('logH', space, visible)));
   return { treeW, previewW, logH };
 }
 
@@ -77,7 +98,7 @@ export function clampSizes(sizes: LayoutSizes, space: Space | null, visible: Vis
 export function parseLayout(raw: unknown): PanelLayout | null {
   if (!raw || typeof raw !== 'object') return null;
   const r = raw as { sizes?: Record<string, unknown>; visible?: Record<string, unknown> };
-  const num = (v: unknown, lim: readonly [number, number]): number | null => (typeof v === 'number' && Number.isFinite(v) && v >= lim[0] && v <= lim[1] ? Math.round(v) : null);
+  const num = (v: unknown, lim: readonly [number, number]): number | null => (typeof v === 'number' && Number.isFinite(v) && v >= lim[0] && v <= 20000 ? Math.round(v) : null);
   const treeW = num(r.sizes?.['treeW'], LIMITS.treeW);
   const previewW = num(r.sizes?.['previewW'], LIMITS.previewW);
   const logH = num(r.sizes?.['logH'], LIMITS.logH);
