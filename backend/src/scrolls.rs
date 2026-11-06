@@ -10,7 +10,7 @@ use serde::{Deserialize, Serialize};
 use sqlx::{FromRow, PgPool};
 use uuid::Uuid;
 
-use crate::{AppState, auth::AuthUser, error::AppError};
+use crate::{AppState, auth::{AuthUser, ViaToken}, error::AppError};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
@@ -65,6 +65,19 @@ pub async fn role_of(db: &PgPool, scroll_id: Uuid, user_id: Uuid) -> Result<Opti
 /// Non-members get `NotFound` (not `Forbidden`) so scroll ids cannot be probed.
 pub async fn require_role(db: &PgPool, scroll_id: Uuid, user_id: Uuid) -> Result<Role, AppError> {
     role_of(db, scroll_id, user_id).await?.ok_or(AppError::NotFound)
+}
+
+/// An assistant's access token on a scroll set to "review" may only add things: anything that overwrites, moves or
+/// removes work (pictures, the whole scroll) has no proposal to wait in, so it is refused with a way forward.
+pub async fn refuse_if_held(db: &PgPool, via: &ViaToken, scroll_id: Uuid, what: &str) -> Result<(), AppError> {
+    if via.0.is_none() {
+        return Ok(());
+    }
+    let mode: String = sqlx::query_scalar("SELECT ai_edit_mode FROM scrolls WHERE id = $1").bind(scroll_id).fetch_one(db).await?;
+    if mode == "review" {
+        return Err(AppError::Conflict(format!("This scroll holds assistants' changes for review, and {what} cannot wait in the queue. A person can do it in the app, or the owner can set the scroll to apply assistant edits automatically.")));
+    }
+    Ok(())
 }
 
 #[derive(Debug, Serialize, FromRow)]
@@ -147,11 +160,12 @@ pub async fn rename(State(state): State<AppState>, user: AuthUser, Path(id): Pat
 }
 
 /// Moves a scroll to the cellar (soft delete). Only the owner may.
-pub async fn delete(State(state): State<AppState>, user: AuthUser, Path(id): Path<Uuid>) -> Result<StatusCode, AppError> {
+pub async fn delete(State(state): State<AppState>, user: AuthUser, via: ViaToken, Path(id): Path<Uuid>) -> Result<StatusCode, AppError> {
     let role = require_role(&state.db, id, user.id).await?;
     if !role.can_manage() {
         return Err(AppError::Forbidden);
     }
+    refuse_if_held(&state.db, &via, id, "deleting the scroll").await?;
     sqlx::query("UPDATE scrolls SET deleted_at = now() WHERE id = $1").bind(id).execute(&state.db).await?;
     Ok(StatusCode::NO_CONTENT)
 }

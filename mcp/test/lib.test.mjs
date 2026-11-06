@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { apiError, buildMatcher, describeCompile, describeQueued, numberLines, searchTexts } from '../src/lib.mjs';
+import { decodeBase64, humanBytes, pictureType, titleMatches, apiError, buildMatcher, describeCompile, describeQueued, numberLines, searchTexts } from '../src/lib.mjs';
 
 test('numberLines numbers like an editor and pads to the widest number', () => {
   assert.equal(numberLines('a\nb\n'), '1 | a\n2 | b');
@@ -56,4 +56,32 @@ test('describeCompile lists errors with their place, and the log tail on failure
 
 test('describeQueued says plainly that nothing changed yet', () => {
   assert.match(describeQueued({ proposalId: 'abc' }), /QUEUED, NOT APPLIED.*abc/);
+});
+
+test('pictureType knows the endings the server accepts', () => {
+  assert.equal(pictureType('figures/A.PNG'), 'image/png');
+  assert.equal(pictureType('x.jpeg'), 'image/jpeg');
+  assert.equal(pictureType('doc.pdf'), 'application/pdf');
+  assert.equal(pictureType('run.exe'), null);
+  assert.equal(pictureType('noending'), null);
+});
+
+test('decodeBase64 takes base64 or a data URL and refuses the rest', () => {
+  assert.equal(decodeBase64('aGVsbG8=').toString(), 'hello');
+  assert.equal(decodeBase64('data:image/png;base64,aGVs\nbG8=').toString(), 'hello');
+  assert.equal(decodeBase64('not base64!'), null);
+  assert.equal(decodeBase64(''), null);
+});
+
+test('titleMatches compares like a person and never matches nothing', () => {
+  assert.equal(titleMatches('Etapa II Wayfinders Copy', ' etapa ii wayfinders copy '), true);
+  assert.equal(titleMatches('A', 'B'), false);
+  assert.equal(titleMatches('', ''), false);
+  assert.equal(titleMatches('A', undefined), false);
+});
+
+test('humanBytes is short and readable', () => {
+  assert.equal(humanBytes(500), '500 bytes');
+  assert.equal(humanBytes(2048), '2.0 KB');
+  assert.equal(humanBytes(5 * 1024 * 1024), '5.0 MB');
 });

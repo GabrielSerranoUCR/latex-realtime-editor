@@ -162,6 +162,11 @@ impl TestServer {
             into_resp(req.send().await.unwrap()).await
         }
     }
+    /// A raw (binary) body sent with an access token, e.g. an assistant's picture upload.
+    fn raw_with_token(&self, method: reqwest::Method, path: &str, token: &str, body: Vec<u8>) -> impl std::future::Future<Output = Resp> + use<> {
+        let (http, addr, path, token) = (self.http.clone(), self.addr, path.to_string(), token.to_string());
+        async move { into_resp(http.request(method, format!("http://{addr}{path}")).bearer_auth(token).body(body).send().await.unwrap()).await }
+    }
     /// A request with a raw (binary) body, e.g. an asset upload.
     fn raw(&self, method: reqwest::Method, path: &str, u: Option<&User>, body: Vec<u8>) -> impl std::future::Future<Output = Resp> + use<> {
         let (http, addr, path, cookie) = (self.http.clone(), self.addr, path.to_string(), u.map(|u| u.cookie.clone()));
@@ -568,8 +573,11 @@ async fn documents_over_http_with_auto_mode() {
     tokio::time::sleep(Duration::from_millis(250)).await;
     assert_eq!(live.file_text("chapters/intro.tex").unwrap(), "Second\n");
 
-    // delete: not the main file
-    assert_eq!(t(Method::DELETE, &format!("{files}/main.tex"), None).await.status, 409);
+    // delete: even the main file may go; another source takes its place as the main file
+    assert_eq!(t(Method::DELETE, &format!("{files}/main.tex"), None).await.json["deleted"], true);
+    tokio::time::sleep(Duration::from_millis(250)).await;
+    assert!(live.file_text("main.tex").is_none());
+    assert_eq!(t(Method::GET, &files, None).await.json["main"], "chapters/intro.tex", "the main file moved to a remaining .tex");
     assert_eq!(t(Method::DELETE, &format!("{files}/chapters/intro.tex"), None).await.json["deleted"], true);
     assert_eq!(t(Method::DELETE, &format!("{files}/chapters/intro.tex"), None).await.status, 404);
 
@@ -1925,4 +1933,42 @@ async fn mail_is_delivered_over_smtp_when_configured() {
     assert!(raw.contains("Subject: Confirm your email"));
     assert!(raw.contains("/verify-email?token="), "the link made it through the wire");
     assert!(srv.mails_to(&u.email).is_empty(), "with SMTP configured nothing is parked in the outbox");
+}
+
+#[tokio::test]
+async fn an_assistants_token_may_only_add_pictures_while_a_scroll_is_held_for_review() {
+    use reqwest::Method;
+    let srv = start_server().await;
+    let (owner, scribe, _reader, _stranger, id) = team(&srv).await;
+    let token = srv.post("/api/me/tokens", Some(&scribe), json!({"name": "Claude", "write": true})).await.json["token"].as_str().unwrap().to_string();
+    let base = format!("/api/scrolls/{id}");
+    let pic = format!("{base}/assets/figures/a.png");
+
+    // review mode (the default): adding is fine, replacing / moving / deleting are not, copying is
+    assert_eq!(srv.raw_with_token(Method::PUT, &pic, &token, png()).await.status, 200, "a new picture is additive");
+    let replace = srv.raw_with_token(Method::PUT, &pic, &token, png()).await;
+    assert_eq!(replace.status, 409, "{}", replace.json);
+    assert!(replace.json["error"].as_str().unwrap().contains("for review"));
+    assert_eq!(srv.with_token(Method::POST, &format!("{base}/asset-moves"), &token, Some(json!({"from": "figures/a.png", "to": "figures/b.png"}))).await.status, 409);
+    assert_eq!(srv.with_token(Method::POST, &format!("{base}/asset-moves"), &token, Some(json!({"from": "figures/a.png", "to": "figures/b.png", "copy": true}))).await.status, 200);
+    assert_eq!(srv.raw_with_token(Method::DELETE, &pic, &token, vec![]).await.status, 409);
+    assert_eq!(srv.with_token(Method::DELETE, &base, &token, None).await.status, 409, "the whole scroll cannot be deleted behind the queue");
+    // a person is never held back
+    assert_eq!(srv.raw(Method::PUT, &pic, Some(&owner), png()).await.status, 200);
+    assert_eq!(srv.get(&base, Some(&owner)).await.status, 200);
+
+    // a read-only token cannot even add
+    let ro = srv.post("/api/me/tokens", Some(&scribe), json!({"name": "Look", "write": false})).await.json["token"].as_str().unwrap().to_string();
+    assert_eq!(srv.raw_with_token(Method::PUT, &format!("{base}/assets/c.png"), &ro, png()).await.status, 403);
+
+    // the owner chooses auto: now an assistant may do all of it
+    assert_eq!(srv.send(Method::PUT, &format!("{base}/ai-mode"), &owner, Some(json!({"mode": "auto"}))).await.status, 204);
+    assert_eq!(srv.raw_with_token(Method::PUT, &pic, &token, png()).await.status, 200);
+    assert_eq!(srv.with_token(Method::POST, &format!("{base}/asset-moves"), &token, Some(json!({"from": "figures/a.png", "to": "figures/c.png"}))).await.status, 200);
+    assert_eq!(srv.raw_with_token(Method::DELETE, &format!("{base}/assets/figures/c.png"), &token, vec![]).await.status, 204);
+    // deleting the scroll is the owner's right even for their token; a scribe's token is still refused
+    assert_eq!(srv.with_token(Method::DELETE, &base, &token, None).await.status, 403, "only the owner may delete");
+    let owner_token = srv.post("/api/me/tokens", Some(&owner), json!({"name": "Claude", "write": true})).await.json["token"].as_str().unwrap().to_string();
+    assert_eq!(srv.with_token(Method::DELETE, &base, &owner_token, None).await.status, 204);
+    assert_eq!(srv.get(&base, Some(&owner)).await.status, 404);
 }

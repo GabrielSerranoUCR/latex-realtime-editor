@@ -89,3 +89,34 @@ export function describeCompile(result, tailLines = 25) {
 export function describeQueued(body) {
   return `QUEUED, NOT APPLIED: this scroll holds assistants' edits for review. A person must accept proposal ${body.proposalId} in the app before it is in the document. You can check it with get_proposal_status. Do not assume the change exists until it is accepted.`;
 }
+
+/** Picture types the server accepts, by file ending. */
+export const PICTURE_TYPES = { png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', gif: 'image/gif', webp: 'image/webp', svg: 'image/svg+xml', pdf: 'application/pdf', eps: 'application/postscript' };
+
+/** The kinds a model can be shown directly as an image. */
+export const VIEWABLE = new Set(['image/png', 'image/jpeg', 'image/gif', 'image/webp']);
+
+/** The picture type for a path, or null when the server would refuse its ending. */
+export function pictureType(path) {
+  const ext = String(path).split('.').pop().toLowerCase();
+  return PICTURE_TYPES[ext] ?? null;
+}
+
+/** Decode base64 (also a `data:` URL) to bytes; null when it is not base64. */
+export function decodeBase64(input) {
+  const raw = String(input).trim().replace(/^data:[^,]*;base64,/, '').replace(/\s+/g, '');
+  if (!raw || raw.length % 4 === 1 || !/^[A-Za-z0-9+/]*={0,2}$/.test(raw)) return null;
+  return Buffer.from(raw, 'base64');
+}
+
+/** Whether `typed` is the scroll's title, compared the way a person would (trimmed, case-insensitive). */
+export function titleMatches(title, typed) {
+  return String(title).trim().toLowerCase() === String(typed ?? '').trim().toLowerCase() && String(typed ?? '').trim() !== '';
+}
+
+/** A short size like "1.4 MB". */
+export function humanBytes(n) {
+  if (n < 1024) return `${n} bytes`;
+  if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
+  return `${(n / 1024 / 1024).toFixed(1)} MB`;
+}

@@ -37,7 +37,7 @@ const call = async (client, name, args = {}) => {
 try {
   const writer = await connect(await makeToken('e2e writer', true));
   const tools = (await writer.listTools()).tools.map((t) => t.name).sort();
-  check('the server offers its tools', ['compile', 'delete_file', 'edit_file', 'get_proposal_status', 'get_scroll', 'list_proposals', 'list_scrolls', 'read_file', 'search', 'write_file'].every((n) => tools.includes(n)), tools.join(', '));
+  check('the server offers its tools', ['compile', 'create_scroll', 'delete_scroll', 'rename_scroll', 'list_images', 'upload_image', 'get_image', 'move_image', 'delete_image', 'delete_file', 'edit_file', 'get_proposal_status', 'get_scroll', 'list_proposals', 'list_scrolls', 'read_file', 'search', 'write_file'].every((n) => tools.includes(n)), tools.join(', '));
   check('every tool has a description for the model', (await writer.listTools()).tools.every((t) => (t.description || '').length > 30));
 
   const list = await call(writer, 'list_scrolls');
@@ -80,11 +80,52 @@ try {
   check('a broken document reports the error with file and line', broken.text.includes('FAILED') && /main\.tex:\d+/.test(broken.text), broken.text.slice(0, 300));
   const del = await call(writer, 'delete_file', { scroll, path: 'chapters/two.tex' });
   check('delete_file removes a file', del.text.includes('Deleted chapters/two.tex'), del.text);
-  check('the main file cannot be deleted', (await call(writer, 'delete_file', { scroll, path: 'main.tex' })).error);
+  const delMain = await call(writer, 'delete_file', { scroll, path: 'main.tex' });
+  check('the main file can be deleted too', !delMain.error && delMain.text.includes('Deleted main.tex'), delMain.text);
+
+  // scrolls: create, rename, delete (a new scroll is in review mode, which guards destructive steps)
+  const made = await call(writer, 'create_scroll', { title: 'Made by an assistant' });
+  const sid = made.text.match(/\(([0-9a-f-]{36})\)/)?.[1];
+  check('create_scroll makes a scroll that shows up in list_scrolls', !made.error && sid && (await call(writer, 'list_scrolls')).text.includes('Made by an assistant'), made.text);
+  check('rename_scroll changes the title', (await call(writer, 'rename_scroll', { scroll: sid, title: 'Renamed scroll' })).text.includes('Renamed') && (await call(writer, 'list_scrolls')).text.includes('Renamed scroll'));
+
+  // pictures: a 1x1 png
+  const PNG = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGP4z8DwHwAFAAH/q842iQAAAABJRU5ErkJggg==';
+  const up = await call(writer, 'upload_image', { scroll: sid, path: 'figures/dot.png', data_base64: PNG });
+  check('upload_image stores a picture (new files are allowed in review mode)', !up.error && up.text.includes('figures/dot.png') && up.text.includes('image/png'), up.text);
+  check('list_images shows it', (await call(writer, 'list_images', { scroll: sid })).text.includes('figures/dot.png'));
+  check('get_scroll lists it among the pictures', (await call(writer, 'get_scroll', { scroll: sid })).text.includes('figures/dot.png'));
+  const viewed = await writer.callTool({ name: 'get_image', arguments: { scroll: sid, path: 'figures/dot.png' } });
+  const img = viewed.content.find((c) => c.type === 'image');
+  check('get_image returns the picture as an image the model can see', img && img.mimeType === 'image/png' && img.data === PNG, JSON.stringify(viewed.content).slice(0, 120));
+  check('a file that is not a picture is refused', (await call(writer, 'upload_image', { scroll: sid, path: 'bad.png', data_base64: Buffer.from('MZ not an image at all').toString('base64') })).error);
+  check('an unsupported ending is refused before upload', (await call(writer, 'upload_image', { scroll: sid, path: 'a.exe', data_base64: PNG })).error);
+  check('exactly one source is required', (await call(writer, 'upload_image', { scroll: sid, path: 'a.png' })).error);
+  const copied = await call(writer, 'move_image', { scroll: sid, from: 'figures/dot.png', to: 'figures/copy.png', copy: true });
+  check('copying a picture is allowed in review mode', !copied.error && (await call(writer, 'list_images', { scroll: sid })).text.includes('figures/copy.png'), copied.text);
+  const held = [
+    await call(writer, 'upload_image', { scroll: sid, path: 'figures/dot.png', data_base64: PNG }),
+    await call(writer, 'move_image', { scroll: sid, from: 'figures/copy.png', to: 'figures/moved.png' }),
+    await call(writer, 'delete_image', { scroll: sid, path: 'figures/copy.png' }),
+    await call(writer, 'delete_scroll', { scroll: sid, confirm_title: 'Renamed scroll' }),
+  ];
+  check('in review mode replacing, moving, deleting a picture and deleting the scroll are refused, with a way forward', held.every((r) => r.error && r.text.includes('for review')), held.map((r) => r.text.slice(0, 60)).join(' | '));
+  check('the picture is still there after the refusals', (await call(writer, 'list_images', { scroll: sid })).text.includes('figures/copy.png'));
+  // the owner switches the scroll to auto, then the full set works
+  assert.equal((await person('PUT', `/api/scrolls/${sid}/ai-mode`, { mode: 'auto' })).status, 204);
+  check('in auto mode a picture can be replaced', !(await call(writer, 'upload_image', { scroll: sid, path: 'figures/dot.png', data_base64: PNG })).error);
+  check('in auto mode a picture can be moved', (await call(writer, 'move_image', { scroll: sid, from: 'figures/copy.png', to: 'moved.png' })).text.includes('Moved'));
+  check('in auto mode a picture can be deleted', (await call(writer, 'delete_image', { scroll: sid, path: 'moved.png' })).text.includes('Deleted moved.png'));
+  check('a missing picture is a clear error', (await call(writer, 'get_image', { scroll: sid, path: 'moved.png' })).error);
+  const wrongTitle = await call(writer, 'delete_scroll', { scroll: sid, confirm_title: 'Something else' });
+  check('delete_scroll refuses a wrong confirm_title', wrongTitle.error && wrongTitle.text.includes('Nothing was deleted'), wrongTitle.text);
+  const gone = await call(writer, 'delete_scroll', { scroll: sid, confirm_title: 'renamed scroll ' });
+  check('delete_scroll removes the scroll when confirmed (in auto mode)', !gone.error && !(await call(writer, 'list_scrolls')).text.includes(sid), gone.text);
 
   // a read-only token reads and compiles, and cannot change anything
   const reader = await connect(await makeToken('e2e reader', false));
   check('a read-only token can read', (await call(reader, 'read_file', { scroll, path: 'main.tex' })).text.includes('main.tex'));
+  check('a read-only token cannot create a scroll', (await call(reader, 'create_scroll', { title: 'nope' })).error);
   const denied = await call(reader, 'write_file', { scroll, path: 'x.tex', content: 'x' });
   check('a read-only token cannot write, and the message says why', denied.error && denied.text.includes('read-only'), denied.text);
   // a bad token
