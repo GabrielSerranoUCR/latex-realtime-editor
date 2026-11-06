@@ -44,7 +44,7 @@ import { InkLogComponent } from './ui/ink-log.component';
 import { InsertImageDialogComponent } from './ui/insert-image-dialog.component';
 import { PortraitPanelComponent } from './ui/portrait-panel.component';
 import { PanelsMenuComponent } from './ui/panels-menu.component';
-import { PdfPreviewComponent } from './ui/pdf-preview.component';
+import { PdfPoint, PdfPreviewComponent } from './ui/pdf-preview.component';
 import { ResizeHandleComponent } from './ui/resize-handle.component';
 import { ShareDialogComponent } from './ui/share-dialog.component';
 import { VerifyBannerComponent } from '../account/verify-banner.component';
@@ -525,6 +525,15 @@ export class EditorPage {
     await this.compiler.compile(room, open && open.endsWith('.tex') ? open : null);
     const built = this.compiler.pdfBuiltAt();
     if (this.compiler.state() === 'ok' && built) this.collab.announceBuild(built);
+  }
+
+  /** Double-click on the preview: put the caret on the source line that made that spot. */
+  protected async onPdfLocate(p: PdfPoint): Promise<void> {
+    const room = this.collab.roomId();
+    if (!room) return;
+    const hit = await this.compiler.locate(room, p.page, p.x, p.y);
+    if (hit) this.jump({ severity: 'info', file: hit.file, line: hit.line, message: '' });
+    else this.toasts.show('Cannot tell where that came from. Compile again, then try a spot with text.', 'bad');
   }
 
   protected jump(d: Diagnostic): void {

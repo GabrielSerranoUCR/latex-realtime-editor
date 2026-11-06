@@ -3,11 +3,11 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use anyhow::Context;
 use axum::{
     Json,
-    extract::{Path, State},
+    extract::{Path, Query, State},
     http::{HeaderValue, header},
     response::{IntoResponse, Response},
 };
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use yrs::{GetString, Map, Out, Transact};
 
 use crate::{
@@ -83,6 +83,7 @@ pub async fn compile(State(state): State<AppState>, user: AuthUser, Path(room_id
     let built_at = SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_millis() as u64).unwrap_or(0);
     let pdf_url = if let Some(pdf) = &result.pdf {
         state.store.save_pdf(&room_id, pdf).await.context("saving pdf")?;
+        state.store.save_synctex(&room_id, result.synctex.as_deref()).await.context("saving synctex")?;
         Some(format!("/api/rooms/{room_id}/pdf?v={built_at}"))
     } else {
         None
@@ -111,4 +112,27 @@ pub async fn latest_pdf(State(state): State<AppState>, user: AuthUser, Path(room
         bytes,
     )
         .into_response())
+}
+
+#[derive(Debug, Deserialize)]
+pub struct SynctexQuery {
+    /// 1-based page of the PDF
+    pub page: u32,
+    /// PDF points from the page's left edge
+    pub x: f64,
+    /// PDF points from the page's top edge
+    pub y: f64,
+}
+
+/// `GET /api/rooms/{room}/synctex?page=&x=&y=`: the file and line behind a point on the latest PDF (404 when unknown).
+pub async fn synctex_lookup(State(state): State<AppState>, user: AuthUser, Path(room_id): Path<String>, Query(q): Query<SynctexQuery>) -> Result<Json<crate::synctex::Located>, AppError> {
+    let scroll_id = parse_room_id(&room_id)?;
+    require_role(&state.db, scroll_id, user.id).await?;
+    if !q.x.is_finite() || !q.y.is_finite() || q.page == 0 {
+        return Err(AppError::NotFound);
+    }
+    let room_id = scroll_id.to_string();
+    let gz = state.store.load_synctex(&room_id).await.context("reading synctex")?.ok_or(AppError::NotFound)?;
+    let hit = tokio::task::spawn_blocking(move || crate::synctex::unpack(&gz).and_then(|t| crate::synctex::locate(&t, q.page, q.x, q.y))).await.context("synctex lookup")?;
+    hit.map(Json).ok_or(AppError::NotFound)
 }
