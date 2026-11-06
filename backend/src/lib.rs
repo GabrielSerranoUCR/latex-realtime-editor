@@ -1,6 +1,7 @@
 //! Quill server: real-time collaboration (Yjs/y-sync over WebSockets) and LaTeX compilation.
 
 pub mod api;
+pub mod assistants;
 pub mod auth;
 pub mod compile;
 pub mod config;
@@ -10,6 +11,7 @@ pub mod error;
 pub mod invites;
 pub mod links;
 pub mod mail;
+pub mod notes;
 pub mod proposals;
 pub mod ratelimit;
 pub mod requests;
@@ -51,6 +53,7 @@ pub struct AppState {
     pub db: PgPool,
     pub mailer: Arc<Mailer>,
     pub limiter: Arc<RateLimiter>,
+    pub assistants: Arc<assistants::Assistants>,
     conn_counter: Arc<AtomicU64>,
     identities: Arc<Mutex<HashMap<uuid::Uuid, (Instant, String, String)>>>,
 }
@@ -84,7 +87,7 @@ impl AppState {
             None => Mailer::outbox(config.data_dir.join("outbox")),
         });
         let compiler = Arc::new(Compiler::new(config.tectonic_bin.clone(), config.compile_workers, config.compile_timeout));
-        Self { config: Arc::new(config), rooms, store, compiler, db, mailer, limiter: Arc::new(RateLimiter::new()), conn_counter: Arc::new(AtomicU64::new(1)), identities: Arc::new(Mutex::new(HashMap::new())) }
+        Self { config: Arc::new(config), rooms, store, compiler, db, mailer, limiter: Arc::new(RateLimiter::new()), assistants: Arc::new(assistants::Assistants::default()), conn_counter: Arc::new(AtomicU64::new(1)), identities: Arc::new(Mutex::new(HashMap::new())) }
     }
 
     pub fn next_conn_id(&self) -> u64 {
@@ -139,6 +142,9 @@ pub fn router(state: AppState) -> Router {
         .route("/api/scrolls/{id}/proposals/{pid}/accept", post(proposals::accept))
         .route("/api/scrolls/{id}/proposals/{pid}/reject", post(proposals::reject))
         .route("/api/scrolls/{id}/ai-mode", put(proposals::set_mode))
+        .route("/api/scrolls/{id}/notes", get(notes::list).post(notes::create))
+        .route("/api/scrolls/{id}/notes/{tid}/replies", post(notes::reply))
+        .route("/api/scrolls/{id}/notes/{tid}/resolved", put(notes::resolve))
         .route("/api/scrolls/{id}/files", get(docs::list))
         .route("/api/scrolls/{id}/files/{*path}", get(docs::read).put(docs::write).patch(docs::edit).delete(docs::remove))
         .route("/api/scrolls/{id}/assets", get(assets::list))
@@ -149,6 +155,7 @@ pub fn router(state: AppState) -> Router {
         .route("/api/scrolls/{id}/versions/{vid}/restore", post(versions::restore))
         .route("/api/rooms/{room}/compile", post(api::compile))
         .route("/api/rooms/{room}/pdf", get(api::latest_pdf))
+        .layer(middleware::from_fn_with_state(state.clone(), assistants::track))
         .layer(middleware::from_fn_with_state(state.clone(), auth::origin_guard))
         .layer(cors)
         .layer(TraceLayer::new_for_http())

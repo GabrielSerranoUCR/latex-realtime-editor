@@ -78,7 +78,7 @@ impl FromRequestParts<AppState> for ViaToken {
     }
 }
 
-fn bearer_token(headers: &HeaderMap) -> Option<String> {
+pub fn bearer_token(headers: &HeaderMap) -> Option<String> {
     let value = headers.get(header::AUTHORIZATION)?.to_str().ok()?;
     let token = value.strip_prefix("Bearer ").or_else(|| value.strip_prefix("bearer "))?.trim();
     (!token.is_empty()).then(|| token.to_string())

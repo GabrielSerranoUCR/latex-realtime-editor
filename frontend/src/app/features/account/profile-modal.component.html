@@ -110,9 +110,17 @@
               <div class="fresh" role="status">
                 <b>Your new token. Copy it now: it will not be shown again.</b>
                 <div class="copyrow"><input readonly [value]="n.token" aria-label="New access token" (focus)="$any($event.target).select()" /><button type="button" class="btn btn--sm" (click)="copy('token')">{{ copied() === 'token' ? 'Copied ✓' : 'Copy' }}</button></div>
-                <small>For an MCP client such as Claude Desktop, add this to its configuration (change the path to where this project lives):</small>
-                <pre class="cfg">{{ n.config }}</pre>
-                <button type="button" class="btn btn--sm btn--ink" (click)="copy('config')">{{ copied() === 'config' ? 'Copied ✓' : 'Copy the configuration' }}</button>
+                <small>Connect your AI tool. Every option runs <code>npx -y quill-mcp</code> (needs Node 18 or newer); pick yours:</small>
+                <div class="harnesses" role="radiogroup" aria-label="Which AI tool">
+                  @for (h of n.snippets; track h.id) {
+                    <button type="button" role="radio" class="chip" [class.on]="harness() === h.id" [attr.aria-checked]="harness() === h.id" (click)="harness.set(h.id)">{{ h.label }}</button>
+                  }
+                </div>
+                @if (snippet(); as sn) {
+                  <small>{{ sn.where }}</small>
+                  <pre class="cfg">{{ sn.text }}</pre>
+                  <button type="button" class="btn btn--sm btn--ink" (click)="copy('config')">{{ copied() === 'config' ? 'Copied ✓' : 'Copy' }}</button>
+                }
               </div>
             }
             <form class="newtoken" (submit)="makeToken($event)">

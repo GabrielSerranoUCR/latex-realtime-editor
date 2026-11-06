@@ -86,3 +86,20 @@ describe('reviewProposal (drawn like git diff)', () => {
     expect(applyEdit('abc', 'b', '', false)).toEqual({ text: 'ac' });
   });
 });
+
+describe('sideBySide', () => {
+  it('puts a removed run across from the added run that follows it', async () => {
+    const { sideBySide } = await import('./proposal-view');
+    const rows = sideBySide([
+      { type: 'same', text: 'a', now: 1, next: 1 },
+      { type: 'del', text: 'b', now: 2 },
+      { type: 'add', text: 'B', next: 2 },
+      { type: 'add', text: 'C', next: 3 },
+    ]);
+    expect(rows.length).toBe(3);
+    expect(rows[1].left).toEqual({ no: 2, text: 'b', del: true });
+    expect(rows[1].right).toEqual({ no: 2, text: 'B', add: true });
+    expect(rows[2].left).toBeNull();
+    expect(rows[2].right?.text).toBe('C');
+  });
+});

@@ -3,7 +3,7 @@ import { Component, ElementRef, computed, effect, inject, signal, untracked, vie
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { ScrollsService } from '../../core/api/scrolls.service';
-import { AccessToken, TokensService, mcpConfig } from '../../core/api/tokens.service';
+import { AccessToken, Harness, Snippet, TokensService, mcpSnippets } from '../../core/api/tokens.service';
 import { AuthService, SessionInfo, apiMessage } from '../../core/auth/auth.service';
 import { ModalsService, ProfileTab } from '../../core/notify/modals.service';
 import { NotificationsService } from '../../core/notify/notifications.service';
@@ -90,7 +90,9 @@ export class ProfileModalComponent {
   protected readonly tokenWrite = signal(false);
   protected readonly tokenDays = signal<number | null>(90);
   protected readonly tokenError = signal<string | null>(null);
-  protected readonly newToken = signal<{ token: string; config: string } | null>(null);
+  protected readonly newToken = signal<{ token: string; snippets: Snippet[] } | null>(null);
+  protected readonly harness = signal<Harness>('claude-code');
+  protected readonly snippet = computed(() => this.newToken()?.snippets.find((x) => x.id === this.harness()) ?? null);
   protected readonly copied = signal<'token' | 'config' | null>(null);
   protected readonly expiryChoices: Array<{ days: number | null; label: string }> = [
     { days: 30, label: '30 days' },
@@ -292,7 +294,7 @@ export class ProfileModalComponent {
     this.tokenError.set(null);
     try {
       const made = await this.tokensApi.create(this.tokenName().trim(), this.tokenWrite(), this.tokenDays());
-      this.newToken.set({ token: made.token, config: mcpConfig(window.location.origin, made.token) });
+      this.newToken.set({ token: made.token, snippets: mcpSnippets(window.location.origin, made.token) });
       this.tokenName.set('');
       this.tokenWrite.set(false);
       this.copied.set(null);
@@ -316,7 +318,7 @@ export class ProfileModalComponent {
     const n = this.newToken();
     if (!n) return;
     try {
-      await navigator.clipboard.writeText(what === 'token' ? n.token : n.config);
+      await navigator.clipboard.writeText(what === 'token' ? n.token : (this.snippet()?.text ?? ''));
       this.copied.set(what);
       setTimeout(() => this.copied() === what && this.copied.set(null), 2500);
     } catch {

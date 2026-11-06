@@ -83,6 +83,8 @@ export class CollabService {
   readonly lastBuild = signal<number | null>(null);
   /** How many edits proposed by an assistant wait for a person to accept them (kept up to date by the server). */
   readonly pendingEdits = signal(0);
+  /** Names of AI assistants (through MCP) working in this scroll right now. */
+  readonly assistants = signal<string[]>([]);
   readonly activeFile = signal<string | null>(null);
   readonly awareness = signal<Awareness | null>(null);
 
@@ -173,6 +175,8 @@ export class CollabService {
       this.mainFile.set((meta.get('main') as string | undefined) ?? 'main.tex');
       this.lastBuild.set((meta.get('lastBuild') as number | undefined) ?? null);
       this.pendingEdits.set(Number(meta.get('pendingEdits') ?? 0) || 0);
+      const bots = meta.get('assistants');
+      this.assistants.set(Array.isArray(bots) ? bots.filter((n): n is string => typeof n === 'string').slice(0, 8) : []);
     };
     const refreshPeers = () => {
       const out: Peer[] = [];
