@@ -31,7 +31,7 @@
 .loading { margin: 80px 0 0; text-align: center; font: italic 20px var(--font-body); color: var(--text-3); }
 // the map: a viewport over a world of tables
 .floor:has(.map) { overflow: hidden; padding: 0; }
-.map { position: absolute; inset: 0; overflow: hidden; cursor: grab; touch-action: none; outline: none; &.panning { cursor: grabbing; } &:focus-visible { box-shadow: inset 0 0 0 3px var(--candle-400); } }
+.map { position: absolute; inset: 0; overflow: hidden; cursor: grab; user-select: none; -webkit-user-select: none; touch-action: none; outline: none; &.panning { cursor: grabbing; } &:focus-visible { box-shadow: inset 0 0 0 3px var(--candle-400); } }
 .world { position: absolute; left: 0; top: 0; width: 0; height: 0; transform-origin: 0 0; will-change: transform; &.smooth { transition: transform 0.4s cubic-bezier(0.22, 0.8, 0.3, 1); }
   // far away the names would be unreadable noise: keep plaques, hide stool labels
   &.far .member .label, &.far .member .peek { display: none; } &.far .plaque { transform: translateX(-50%) scale(1.7); } }

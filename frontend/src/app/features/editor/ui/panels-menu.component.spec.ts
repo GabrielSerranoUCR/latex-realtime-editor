@@ -56,7 +56,7 @@ describe('PanelsMenuComponent', () => {
   it('lists the four panels with their state', () => {
     const { openIt, rows } = setup({ visible: { tree: false }, popped: { preview: true, log: false } });
     openIt();
-    expect(rows()).toEqual(['Tavern Hall Hidden', 'Source Editor Docked', 'Scroll Preview In its own window', 'Ink Log Docked']);
+    expect(rows()).toEqual(['Tavern Hall Hidden', 'Source Editor Docked', 'Scroll Preview In its own window', 'Ink Log Hidden']);
   });
 
   it('emits toggles, pop-outs, reset and save', () => {

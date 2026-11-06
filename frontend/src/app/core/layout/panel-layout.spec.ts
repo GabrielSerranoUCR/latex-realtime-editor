@@ -1,8 +1,16 @@
 import { describe, expect, it } from 'vitest';
-import { DEFAULT_LAYOUT, HANDLE, LIMITS, MIN_EDITOR_W, RAIL_W, clampSizes, gridFor, parseLayout, stepSize } from './panel-layout';
+import { DEFAULT_LAYOUT, HANDLE, LIMITS, MIN_EDITOR_W, RAIL_W, clampSizes, gridFor, maxSize, parseLayout, stepSize } from './panel-layout';
 
-const all = DEFAULT_LAYOUT.visible;
+/** every panel shown (the default hides the ink log) */
+const all = { ...DEFAULT_LAYOUT.visible, log: true };
 const grid = (over: Partial<Parameters<typeof gridFor>[0]> = {}) => gridFor({ sizes: DEFAULT_LAYOUT.sizes, visible: all, rightDock: true, logPopped: false, ...over });
+
+describe('the default layout', () => {
+  it('starts with the ink log hidden', () => {
+    expect(DEFAULT_LAYOUT.visible).toEqual({ tree: true, source: true, preview: true, log: false });
+    expect(gridFor({ sizes: DEFAULT_LAYOUT.sizes, visible: DEFAULT_LAYOUT.visible, rightDock: true, logPopped: false }).areas).toBe("'tree ht source hp preview'");
+  });
+});
 
 describe('gridFor', () => {
   it('lays out the default workspace like the design: tree | editor | preview over the ink log, with handles between', () => {
@@ -60,9 +68,24 @@ describe('gridFor', () => {
 });
 
 describe('clampSizes', () => {
-  it('keeps every size within its limits', () => {
-    const s = clampSizes({ treeW: 10, previewW: 5000, logH: 2 }, null, all);
-    expect(s).toEqual({ treeW: LIMITS.treeW[0], previewW: LIMITS.previewW[1], logH: LIMITS.logH[0] });
+  it('keeps every size at or above its minimum, with no fixed maximum', () => {
+    expect(clampSizes({ treeW: 10, previewW: 5000, logH: 2 }, null, all)).toEqual({ treeW: LIMITS.treeW[0], previewW: 5000, logH: LIMITS.logH[0] });
+    expect(clampSizes({ treeW: 900, previewW: 460, logH: 900 }, null, all)).toEqual({ treeW: 900, previewW: 460, logH: 900 });
+  });
+  it('lets a panel grow until the others reach their minimum, and no further', () => {
+    const space = { w: 1600, h: 900 };
+    // preview: 1600 - 24 padding - 320 editor - 12 handle - (160 tree + 12 handle)
+    expect(maxSize('previewW', space, all)).toBe(1072);
+    const big = clampSizes({ treeW: 236, previewW: 5000, logH: 170 }, space, all, 'previewW');
+    expect(big.previewW).toBe(1072);
+    expect(big.treeW).toBe(LIMITS.treeW[0]);
+    expect(24 + big.treeW + HANDLE + MIN_EDITOR_W + big.previewW + HANDLE).toBe(1600);
+    // a hidden Tavern Hall is a rail: the preview may take what the rail leaves
+    expect(maxSize('previewW', space, { ...all, tree: false })).toBe(1600 - 24 - 320 - 12 - RAIL_W);
+    // the log may grow until the top row is down to its minimum
+    expect(maxSize('logH', space, all)).toBe(900 - 24 - 200 - 12);
+    // a window too small for the minimums never yields less than a panel's own minimum
+    expect(maxSize('treeW', { w: 400, h: 300 }, all)).toBe(LIMITS.treeW[0]);
   });
   it('leaves the editor its room by shrinking the other column first', () => {
     const space = { w: 1000, h: 800 };
@@ -72,6 +95,7 @@ describe('clampSizes', () => {
     const fromTree = clampSizes({ treeW: 480, previewW: 460, logH: 170 }, space, all, 'treeW');
     expect(fromTree.treeW).toBeLessThanOrEqual(480);
     expect(fromTree.treeW + fromTree.previewW).toBeLessThan(480 + 460);
+    expect(24 + fromTree.treeW + HANDLE + MIN_EDITOR_W + fromTree.previewW + HANDLE).toBeLessThanOrEqual(1000);
   });
   it('does not let the ink log eat the top row', () => {
     expect(clampSizes({ treeW: 236, previewW: 460, logH: 600 }, { w: 1400, h: 600 }, all).logH).toBe(600 - 24 - 200 - 12);
@@ -98,7 +122,7 @@ describe('stepSize', () => {
     expect(stepSize(300, 'ArrowRight', false, LIMITS.treeW)).toBe(316);
     expect(stepSize(300, 'ArrowLeft', true, LIMITS.treeW)).toBe(236);
     expect(stepSize(300, 'Home', false, LIMITS.treeW)).toBe(160);
-    expect(stepSize(300, 'End', false, LIMITS.treeW)).toBe(480);
+    expect(stepSize(300, 'End', false, [160, 700])).toBe(700);
     expect(stepSize(300, 'a', false, LIMITS.treeW)).toBeNull();
   });
 });

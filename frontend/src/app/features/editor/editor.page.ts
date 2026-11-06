@@ -44,7 +44,8 @@ import { InkLogComponent } from './ui/ink-log.component';
 import { InsertImageDialogComponent } from './ui/insert-image-dialog.component';
 import { PortraitPanelComponent } from './ui/portrait-panel.component';
 import { PanelsMenuComponent } from './ui/panels-menu.component';
-import { PdfPreviewComponent } from './ui/pdf-preview.component';
+import { PdfPoint, PdfPreviewComponent } from './ui/pdf-preview.component';
+import { columnIn } from '../../core/pdf/word';
 import { ResizeHandleComponent } from './ui/resize-handle.component';
 import { ShareDialogComponent } from './ui/share-dialog.component';
 import { VerifyBannerComponent } from '../account/verify-banner.component';
@@ -525,13 +526,39 @@ export class EditorPage {
     await this.compiler.compile(room, open && open.endsWith('.tex') ? open : null);
     const built = this.compiler.pdfBuiltAt();
     if (this.compiler.state() === 'ok' && built) this.collab.announceBuild(built);
+    if (this.compiler.state() === 'failed') this.buildFailed();
+  }
+
+  private failedToast: number | null = null;
+
+  /** Say the build failed, and (when the ink log is not already open beside the text) offer to show it. */
+  private buildFailed(): void {
+    if (this.failedToast !== null) this.toasts.dismiss(this.failedToast);
+    const docked = this.layout.visible().log && !this.layout.popped().log;
+    const action = docked ? undefined : { label: 'View ink log', run: () => this.showInkLog() };
+    this.failedToast = this.toasts.show('Build failed.', 'bad', 10_000, action);
+  }
+
+  /** Open the ink log: bring its window forward if it is popped out, else dock it. */
+  protected showInkLog(): void {
+    if (this.layout.popped().log) this.popout.open('log'); // opening it again brings its window forward
+    else this.layout.setVisible('log', true);
+  }
+
+  /** Double-click on the preview: put the caret on the source line that made that spot. */
+  protected async onPdfLocate(p: PdfPoint): Promise<void> {
+    const room = this.collab.roomId();
+    if (!room) return;
+    const hit = await this.compiler.locate(room, p.page, p.x, p.y);
+    if (hit) this.jump({ severity: 'info', file: hit.file, line: hit.line, column: columnIn(this.collab.project.read(hit.file), hit.line, p), message: '' });
+    else this.toasts.show('Cannot tell where that came from. Compile again, then try a spot with text.', 'bad');
   }
 
   protected jump(d: Diagnostic): void {
     if (!d.file) return;
     this.collab.openFile(d.file);
     // let the editor swap to the file's Y.Text before moving the caret
-    setTimeout(() => this.editor()?.revealLine(d.line ?? 1), 0);
+    setTimeout(() => this.editor()?.revealLine(d.line ?? 1, d.column), 0);
   }
 
   protected openAiChanges(): void {

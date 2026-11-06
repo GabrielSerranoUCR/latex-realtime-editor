@@ -97,6 +97,7 @@ try {
   await until(async () => (await editorText(owner)).includes('documentclass'), 'starter file synced');
   check('starter document is seeded and shown', true);
   check('title and role are shown', (await owner.$eval('.doc h1', (e) => e.textContent)).includes('Thesis') && (await owner.$eval('.doc h1 .chip', (e) => e.textContent)).trim() === 'owner');
+  check('the ink log starts hidden', (await owner.$('qq-ink-log')) === null);
   check('connection indicator says connected', (await owner.$eval('.state', (e) => e.textContent)).includes('Saved to the cellar') || (await owner.$eval('.state', (e) => e.textContent)).includes('Joining'));
 
   // ---- type into the editor, autocomplete, compile with REAL Tectonic
@@ -110,6 +111,15 @@ try {
   await owner.keyboard.type('Hello from the browser');
   const txt = await editorText(owner);
   check('Tab accepted the suggestion and left the caret inside the braces', txt.includes('\\section{Hello from the browser}'), JSON.stringify(txt.slice(-60)));
+  // Enter never accepts a suggestion: it types a newline
+  await owner.keyboard.press('Enter');
+  await owner.keyboard.type('\\subsec');
+  await until(() => owner.$('.cm-tooltip-autocomplete'), 'autocomplete popup again');
+  await owner.keyboard.press('Enter');
+  await sleep(200);
+  const afterEnter = await editorText(owner);
+  check('Enter does not accept a suggestion (only Tab does)', !afterEnter.includes('\\subsection') && afterEnter.includes('\\subsec'), JSON.stringify(afterEnter.slice(-30)));
+  for (let i = 0; i < 9; i++) await owner.keyboard.press('Backspace'); // "\subsec" and the two newlines
 
   // ---- invite a reader
   const readerMail = email('rowan');
@@ -181,6 +191,13 @@ try {
   check('live edits keep flowing to the reader', true);
   await until(async () => (await owner.$$eval('.presence li', (l) => l.length)) >= 2, 'presence shows two scribes');
   check('presence shows both scribes', true);
+  // show the ink log (it starts hidden) for the compile checks that follow
+  await owner.evaluate(() => document.querySelector('qq-panels-menu button.chipbtn').click());
+  await owner.waitForSelector('qq-panels-menu .pop');
+  await owner.evaluate(() => document.querySelectorAll('qq-panels-menu input[role=switch]')[3].click());
+  await owner.waitForSelector('qq-ink-log');
+  await owner.keyboard.press('Escape');
+  await owner.evaluate(() => document.body.click());
 
   await owner.keyboard.down('Control'); await owner.keyboard.press('Enter'); await owner.keyboard.up('Control');
   await until(async () => (await owner.$eval('qq-ink-log .chip', (e) => e.textContent)).includes('Compiled'), 'compile finishes', 120000);
@@ -198,10 +215,75 @@ try {
     await sleep(400);
     check('and it opens again', (await owner.$$('qq-file-tree li')).length === before);
   }
-  await until(() => owner.$('qq-pdf-preview iframe'), 'pdf iframe');
-  check('PDF preview iframe appears', true);
-  await until(() => reader.$('qq-pdf-preview iframe'), 'reader preview follows the build');
+  await until(() => owner.$('qq-pdf-preview .page canvas'), 'pdf page');
+  check('PDF preview shows the pages', true);
+  await until(() => reader.$('qq-pdf-preview .page canvas'), 'reader preview follows the build');
   check("reader's preview shows the owner's build automatically", true);
+
+  // the viewer: pages centred on a bare background, with text that can be selected
+  await until(() => owner.$('qq-pdf-preview .textLayer span'), 'the text layer');
+  const layoutBox = await owner.evaluate(() => { const sc = document.querySelector('qq-pdf-preview .scroller'); const pg = document.querySelector('qq-pdf-preview .page'); const a = sc.getBoundingClientRect(); const b = pg.getBoundingClientRect(); return { overflow: sc.scrollWidth > sc.clientWidth, dx: Math.abs((a.left + a.width / 2) - (b.left + b.width / 2)), bg: getComputedStyle(sc).backgroundColor, shadow: getComputedStyle(pg).boxShadow }; });
+  check('the page is centred in the preview panel (when it fits its width; wider, it scrolls)', layoutBox.overflow || layoutBox.dx <= 2, `${layoutBox.dx.toFixed(1)}px off, overflow ${layoutBox.overflow}`);
+  check('the preview has no background of its own, and the page has a shadow', layoutBox.bg === 'rgba(0, 0, 0, 0)' && layoutBox.shadow !== 'none', layoutBox.bg);
+  {
+    // zoomed in, then the panel changes size: the page fits afresh at the default 100%
+    const zoomLabel = () => owner.$eval('qq-pdf-preview .hbtn.zoom', (e) => e.textContent.trim());
+    await owner.evaluate(() => [...document.querySelectorAll('qq-pdf-preview .head .hbtn')].find((b) => b.getAttribute('aria-label') === 'Zoom in').click());
+    await until(async () => (await zoomLabel()) === '115%', 'zoomed in');
+    const vp = owner.viewport();
+    await owner.setViewport({ ...vp, height: vp.height - 80 });
+    await until(async () => (await zoomLabel()) === '100%', 'back at 100% after the panel was resized');
+    check('when the panel is resized the preview fits afresh at the default 100% zoom', true);
+    await owner.setViewport(vp);
+    await until(async () => (await owner.$eval('qq-pdf-preview .scroller', (e) => e.offsetHeight)) > 0, 'panel back');
+    await sleep(500);
+  }
+  {
+    const sp = await owner.evaluate(() => { const el = [...document.querySelectorAll('qq-pdf-preview .textLayer span')].find((e) => e.textContent.includes('Everyone')); const r = el.getBoundingClientRect(); return { x: r.x, y: r.y, w: r.width, h: r.height }; });
+    await owner.mouse.move(sp.x + 1, sp.y + sp.h / 2);
+    await owner.mouse.down();
+    await owner.mouse.move(sp.x + sp.w - 1, sp.y + sp.h / 2, { steps: 8 });
+    await owner.mouse.up();
+    const picked = await owner.evaluate(() => window.getSelection().toString());
+    check('text in the preview can be selected', picked.trim().length > 3, JSON.stringify(picked.slice(0, 40)));
+  }
+
+  // ---- double-click the PDF: the caret goes to the source line that made that spot (SyncTeX)
+  {
+    const room = owner.url().match(/\/scroll\/([0-9a-f-]{36})/)[1];
+    // on the word itself, not just the line (first, so the line-level check below leaves the caret where it always did)
+    const wordSpot = await owner.evaluate(() => {
+      const span = [...document.querySelectorAll('qq-pdf-preview .textLayer span')].find((e) => e.textContent.includes('Everyone'));
+      const node = span.firstChild; const text = node.textContent; const i = text.indexOf('table');
+      const r = document.createRange(); r.setStart(node, i); r.setEnd(node, i + 5);
+      const b = r.getBoundingClientRect();
+      return { x: b.x + b.width / 2, y: b.y + b.height / 2, text };
+    });
+    await owner.mouse.click(wordSpot.x, wordSpot.y, { clickCount: 2 });
+    const srcLine = await owner.evaluate(() => [...document.querySelectorAll('.cm-line')].map((l) => l.textContent).find((t) => t.startsWith('Everyone at this table')));
+    const wantCol = srcLine.indexOf('table') + 1;
+    await until(async () => (await owner.$eval('.status span', (e) => e.textContent).catch(() => '')).includes(`Col ${wantCol}`), 'caret on the clicked word');
+    check('double-clicking a word in the PDF puts the caret on that word (not just the line)', true, `Col ${wantCol}`);
+    // find a spot on page 1 where the server names a line (proves the server side), then double-click it for real
+    const found = await owner.evaluate(async (room) => {
+      for (let y = 280; y < 480; y += 6) {
+        const r = await fetch(`/api/rooms/${room}/synctex?page=1&x=200&y=${y}`);
+        if (r.ok) { const hit = await r.json(); if (hit.line > 1) return { y, line: hit.line, file: hit.file }; }
+      }
+      return null;
+    }, room);
+    check('the server maps a spot of the PDF back to a source line (SyncTeX)', found !== null, JSON.stringify(found));
+    const y = found?.y ?? 100;
+    await owner.click('.cm-content');
+    await owner.keyboard.down(MOD_KEY);
+    await owner.keyboard.press(MOD_KEY === 'Meta' ? 'ArrowUp' : 'Home');
+    await owner.keyboard.up(MOD_KEY);
+    const box = await owner.$eval('qq-pdf-preview .page', (e) => { const r = e.getBoundingClientRect(); return { left: r.left, top: r.top, width: r.width }; });
+    const scale = box.width / 612;
+    await owner.mouse.click(box.left + 200 * scale, box.top + y * scale, { clickCount: 2 });
+    await until(async () => (await owner.$$eval('.cm-activeLineGutter', (els) => els.map((e) => e.textContent.trim()).filter(Boolean).join(','))) === String(found?.line), 'caret on the line behind the spot');
+    check('double-clicking the PDF puts the caret on the source line behind it', true, `line ${found?.line}`);
+  }
   await sleep(1500);
   await owner.screenshot({ path: `${OUT}/05-editor-compiled.png` });
   await reader.screenshot({ path: `${OUT}/06-reader-editor.png` });
@@ -370,6 +452,7 @@ try {
   await openPanels(owner);
   const pStatuses = await owner.$$eval('qq-panels-menu .row', (l) => l.map((r) => r.innerText.replace(/\s+/g, ' ')));
   check('the Panels menu lists the four panels with their state', pStatuses.length === 4 && /tavern hall/i.test(pStatuses[0]) && pStatuses[0].includes('Docked') && /ink log/i.test(pStatuses[3]), pStatuses.join(' | '));
+  check('the Panels popover is drawn over the menu bar below it (its top row is not covered)', await owner.evaluate(() => { const r = document.querySelector('qq-panels-menu .pop h3').getBoundingClientRect(); const top = document.elementFromPoint(r.x + 10, r.y + r.height / 2); return !!top?.closest('.pop'); }));
   await owner.screenshot({ path: `${OUT}/17-panels-menu.png` });
   await sw(owner, 0);
   await owner.waitForSelector('nav.rail');
@@ -403,11 +486,31 @@ try {
   check('a saved layout is back after a reload (Tavern Hall 296 px, no ink log)', pnear((await pbox(owner, 'qq-file-tree')).w, 296) && (await owner.$('qq-ink-log')) === null, `${(await pbox(owner, 'qq-file-tree')).w}px`);
   await openPanels(owner);
   await foot(owner, 0);
-  await owner.waitForSelector('qq-ink-log');
-  check('"Reset to default layout" restores everything', pnear((await pbox(owner, 'qq-file-tree')).w, 236) && pnear((await pbox(owner, 'qq-ink-log')).h, 170));
+  await until(async () => pnear((await pbox(owner, 'qq-file-tree')).w, 236), 'tree back to its default width');
+  check('"Reset to default layout" restores the default (Tavern Hall 236 px, ink log hidden)', pnear((await pbox(owner, 'qq-file-tree')).w, 236) && (await owner.$('qq-ink-log')) === null);
   await owner.reload();
   await owner.waitForSelector('qq-file-tree');
-  check('and forgets the saved layout', pnear((await pbox(owner, 'qq-file-tree')).w, 236) && (await owner.$('qq-ink-log')) !== null);
+  check('and forgets the saved layout', pnear((await pbox(owner, 'qq-file-tree')).w, 236) && (await owner.$('qq-ink-log')) === null);
+
+  // a failed build says so, and offers the ink log (hidden by default)
+  await owner.click('.cm-content');
+  await owner.keyboard.down(MOD_KEY);
+  await owner.keyboard.press(MOD_KEY === 'Meta' ? 'ArrowUp' : 'Home');
+  await owner.keyboard.up(MOD_KEY);
+  for (let i = 0; i < 3; i++) await owner.keyboard.press('ArrowDown');
+  await owner.keyboard.type('\\zzfailnow');
+  await owner.keyboard.down('Control'); await owner.keyboard.press('Enter'); await owner.keyboard.up('Control');
+  await until(async () => (await owner.$eval('qq-toasts .toast', (e) => e.innerText).catch(() => '')).includes('Build failed'), 'a "Build failed" message', 120000);
+  check('a failed build says "Build failed" with a "View ink log" button', (await owner.$eval('qq-toasts .toast .act', (e) => e.textContent)).includes('View ink log') && (await owner.$('qq-ink-log')) === null);
+  await owner.click('qq-toasts .toast .act');
+  await owner.waitForSelector('qq-ink-log');
+  check('"View ink log" opens the ink log, showing the errors', (await owner.$eval('qq-ink-log', (e) => e.innerText)).toLowerCase().includes('zzfailnow') || (await owner.$$('qq-ink-log .chip--bad')).length > 0);
+  await owner.click('.cm-content');
+  for (let i = 0; i < 20 && (await editorText(owner)).includes('zzfailnow'); i++) {
+    await owner.keyboard.down(MOD_KEY); await owner.keyboard.press('z'); await owner.keyboard.up(MOD_KEY);
+    await sleep(60);
+  }
+  check('the failing command is undone again', !(await editorText(owner)).includes('zzfailnow'));
 
   // every panel hidden: a hint, and a way back
   await openPanels(owner);
@@ -422,6 +525,8 @@ try {
   // ---- pop the preview out into its own window
   const popWinLogClick = () => logWin.evaluate(() => [...document.querySelectorAll('button.line.bad')].find((b) => !b.disabled)?.click());
   const pNextPage = () => browser.waitForTarget((t) => t.url().includes('/popout/'), { timeout: 15000 }).then((t) => t.page());
+  const seats = (page) => page.$$eval('.presence li:not(.bot)', (l) => l.length);
+  const seatsBefore = await seats(owner);
   await openPanels(owner);
   let pWaiting = pNextPage();
   await popBtn(owner, 2);
@@ -429,21 +534,36 @@ try {
   await popWin.waitForSelector('qq-pdf-preview');
   await owner.waitForSelector('.away');
   check('"Pop out" opens the preview in a window of its own and leaves a note behind', (await owner.$eval('.away', (e) => e.innerText)).includes('Scroll Preview is open in another window'));
-  await popWin.waitForSelector('qq-pdf-preview iframe');
+  await popWin.waitForSelector('qq-pdf-preview .page canvas');
   check('the popped-out window shows the PDF and says it is live-linked', (await popWin.title()).includes('Scroll Preview') && (await popWin.$eval('.win', (e) => e.innerText)).includes('Dock back'));
   await until(async () => (await popWin.$eval('.foot', (e) => e.innerText)).includes('Live-linked'), 'popup linked');
   check('the popup is live-linked to the main window', true);
-  const prevSrc = await popWin.$eval('qq-pdf-preview iframe', (e) => e.getAttribute('src'));
+  await sleep(1500);
+  check('opening the preview in its own window does not add a scribe to the table', (await seats(owner)) === seatsBefore, `${seatsBefore} before, ${await seats(owner)} after`);
+  const prevSrc = await popWin.$eval('qq-pdf-preview .scroller', (e) => e.getAttribute('data-src'));
   await owner.bringToFront();
   await owner.click('.cm-content');
   await owner.keyboard.down('Control'); await owner.keyboard.press('Enter'); await owner.keyboard.up('Control');
-  await until(async () => (await popWin.$eval('qq-pdf-preview iframe', (e) => e.getAttribute('src'))) !== prevSrc, 'popup follows the new build');
+  await until(async () => (await popWin.$eval('qq-pdf-preview .scroller', (e) => e.getAttribute('data-src'))) !== prevSrc, 'popup follows the new build');
   check('a new compile in the main window shows up in the popped-out preview', true);
   await popWin.screenshot({ path: `${OUT}/18-preview-popout.png` });
   await popWin.click('header .btn:last-child');
   await until(() => popWin.isClosed(), 'popup closes after Dock back', 6000);
   await owner.waitForSelector('qq-pdf-preview');
   check('"Dock back" closes the window and puts the preview back', (await owner.$('.away')) === null);
+  {
+    // the Tavern Hall in a window of its own is not another scribe either
+    await openPanels(owner);
+    const hallWait = browser.waitForTarget((t) => t.url().includes('/hall'), { timeout: 15000 }).then((t) => t.page());
+    await popBtn(owner, 0);
+    const hallWin = await hallWait;
+    await hallWin.waitForSelector('.map', { timeout: 15000 });
+    await sleep(1500);
+    check('opening the Tavern Hall in its own window does not add a scribe to the table', (await seats(owner)) === seatsBefore, `${seatsBefore} before, ${await seats(owner)} after`);
+    await hallWin.close();
+    await owner.bringToFront();
+    await owner.evaluate(() => document.body.click());
+  }
 
   // closing the window by hand docks it again too
   await openPanels(owner);
@@ -626,7 +746,8 @@ try {
   await dpDrop(owner, [{ name: 'dropped-one.png', type: 'image/png', b64: dpB64 }]);
   await dpDialogOpen(owner);
   check('dropping a picture on the editor always opens "Hang a Portrait in Your Scroll"', true);
-  check('the dialog has that picture chosen', (await owner.$eval('dialog.portrait[open] select[name=image]', (e) => e.value)) === 'figures/dropped-one.png');
+  const chosenPic = await owner.$eval('dialog.portrait[open] select[name=image]', (e) => e.value);
+  check('the dialog has that picture chosen', chosenPic === 'figures/dropped-one.png', chosenPic);
   check('and says it goes in at the drop point (line 3)', (await owner.$eval('dialog.portrait[open] .where', (e) => e.textContent)).includes('line 3'));
   check('the picture was added to the Tavern Hall list', (await owner.$$eval('qq-file-tree li.asset .nm', (l) => l.map((x) => x.textContent))).includes('dropped-one.png'));
   await owner.screenshot({ path: `${OUT}/27-drop-prompt.png` });
@@ -1096,11 +1217,11 @@ try {
   await owner.waitForSelector('dialog.settings[open]');
   await pfSwitch(owner, 'dialog.settings', 0); // auto-compile on (Compiler tab)
   await pfSaveSettings(owner);
-  const srcBefore = await owner.$eval('qq-pdf-preview iframe', (e) => e.getAttribute('src'));
+  const srcBefore = await owner.$eval('qq-pdf-preview .scroller', (e) => e.getAttribute('data-src'));
   await owner.click('.cm-content');
   await owner.keyboard.press('ArrowRight');
   await owner.keyboard.type(' ');
-  await until(async () => (await owner.$eval('qq-pdf-preview iframe', (e) => e.getAttribute('src'))) !== srcBefore, 'a build starts by itself', 20000);
+  await until(async () => (await owner.$eval('qq-pdf-preview .scroller', (e) => e.getAttribute('data-src'))) !== srcBefore, 'a build starts by itself', 20000);
   check('with auto-compile on, a build starts a moment after you stop typing', true);
   await owner.keyboard.press('Backspace');
   await pfClickText(owner, 'header .panels button', 'Settings');
@@ -1212,6 +1333,7 @@ try {
   await owner.mouse.move(target.x + target.w / 2 - 40, target.y + target.h / 2 - 30, { steps: 12 }); // onto the other table, a little up-left of its middle
   await owner.mouse.up();
   await sleep(500);
+  check('dragging a table does not select the page', await owner.evaluate(() => window.getSelection().isCollapsed || window.getSelection().toString() === ''));
   const moved = await tableBox(owner, 'drafts');
   const still = await tableBox(owner, mainName);
   const apart = Math.hypot(moved.x + moved.w / 2 - (still.x + still.w / 2), moved.y + moved.h / 2 - (still.y + still.h / 2));

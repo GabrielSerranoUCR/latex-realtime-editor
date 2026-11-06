@@ -11,7 +11,7 @@ import { tags as t } from '@lezer/highlight';
 import { yCollab, yUndoManagerKeymap } from 'y-codemirror.next';
 import { Awareness } from 'y-protocols/awareness';
 import * as Y from 'yjs';
-import { ProjectSource, acceptCompletionWithTab, latexCompletions } from '../../../core/latex/completions';
+import { ProjectSource, acceptCompletionWithTab, completionKeys, latexCompletions } from '../../../core/latex/completions';
 import { FONT_STACKS } from '../../../core/prefs/prefs';
 import { PreferencesService } from '../../../core/prefs/prefs.service';
 
@@ -373,12 +373,13 @@ export class CodeEditorComponent {
     view.dispatch({ selection: { anchor: a, head: b }, effects: EditorView.scrollIntoView(a, { y: 'center' }) });
   }
 
-  /** Move the caret to a 1-based line (used when jumping to a compile error). */
-  revealLine(line: number): void {
+  /** Move the caret to a 1-based line (used when jumping to a compile error), and to a 1-based column when one is given. */
+  revealLine(line: number, column?: number | null): void {
     const view = this.view;
     if (!view) return;
     const n = Math.min(Math.max(1, line), view.state.doc.lines);
-    const pos = view.state.doc.line(n).from;
+    const at = view.state.doc.line(n);
+    const pos = at.from + (column ? Math.min(Math.max(0, column - 1), at.length) : 0);
     view.dispatch({ selection: { anchor: pos }, effects: EditorView.scrollIntoView(pos, { y: 'center' }) });
     view.focus();
   }
@@ -485,7 +486,8 @@ export class CodeEditorComponent {
           drawSelection(),
           bracketMatching(),
           this.closeC.of(this.closeExt()),
-          autocompletion({ override: latexCompletions(project), icons: true, maxRenderedOptions: 80 }),
+          autocompletion({ override: latexCompletions(project), icons: true, maxRenderedOptions: 80, defaultKeymap: false }),
+          completionKeys,
           acceptCompletionWithTab,
           highlightSelectionMatches(),
           StreamLanguage.define(stex),

@@ -111,7 +111,7 @@ export class CollabService {
       const awareness = this.awareness();
       const file = this.activeFile();
       const me = this.me();
-      const present = this.prefsService.prefs().appearPresent;
+      const present = this.prefsService.prefs().appearPresent && !this.silent;
       if (!awareness) return;
       if (!present) {
         if (awareness.getLocalState() !== null) awareness.setLocalState(null);
@@ -132,13 +132,18 @@ export class CollabService {
     return map;
   });
 
-  connect(roomId: string, serverUrl = defaultWsBase()): void {
+  /** True for a window that only looks (a popped-out panel, the hall page): it never appears among the scribes. */
+  private silent = false;
+
+  /** `observer`: join without appearing at the table (another window of yours must not look like a new scribe). */
+  connect(roomId: string, serverUrl = defaultWsBase(), observer = false): void {
     if (this.roomId() === roomId && this.provider) return;
     this.disconnect();
+    this.silent = observer;
 
     const doc = new Y.Doc();
     const awareness = new Awareness(doc);
-    awareness.setLocalStateField('user', this.me());
+    if (!observer) awareness.setLocalStateField('user', this.me());
     const provider = new WsProvider(`${serverUrl}/ws/${encodeURIComponent(roomId)}`, doc, awareness);
     this.doc = doc;
     this.provider = provider;

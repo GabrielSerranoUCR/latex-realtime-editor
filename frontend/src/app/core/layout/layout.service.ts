@@ -1,5 +1,5 @@
 import { Injectable, signal } from '@angular/core';
-import { DEFAULT_LAYOUT, LIMITS, LayoutSizes, PanelId, PanelLayout, Space, Visibility, clampSizes, parseLayout } from './panel-layout';
+import { DEFAULT_LAYOUT, LIMITS, LayoutSizes, PanelId, PanelLayout, Space, Visibility, clampSizes, maxSize, parseLayout } from './panel-layout';
 
 const KEY = 'quill.layout.v1';
 
@@ -49,8 +49,9 @@ export class PanelLayoutService {
     this.sizes.update((s) => clampSizes(s, this.space(), this.visible()));
   }
 
+  /** The smallest a panel may be, and the most it may take now (what leaves the others their own smallest). */
   limits(key: keyof LayoutSizes): readonly [number, number] {
-    return LIMITS[key];
+    return [LIMITS[key][0], maxSize(key, this.space(), this.visible())];
   }
 
   setVisible(id: PanelId, on: boolean): void {

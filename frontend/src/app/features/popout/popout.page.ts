@@ -5,6 +5,8 @@ import { ScrollsService } from '../../core/api/scrolls.service';
 import { CollabService } from '../../core/collab/collab.service';
 import { PreferencesService } from '../../core/prefs/prefs.service';
 import { PopPanel, PopoutMessage, channelName, parseMessage } from '../../core/layout/popout-protocol';
+import { PdfPoint } from '../editor/ui/pdf-preview.component';
+import { columnIn } from '../../core/pdf/word';
 import { InkLogComponent } from '../editor/ui/ink-log.component';
 import { PdfPreviewComponent } from '../editor/ui/pdf-preview.component';
 
@@ -24,7 +26,7 @@ import { PdfPreviewComponent } from '../editor/ui/pdf-preview.component';
       </header>
       <main class="stage">
         @if (panel() === 'preview') {
-          <qq-pdf-preview [controls]="false" [pdfUrl]="compile.pdfUrl()" [state]="compile.state()" [stale]="compile.stale()" />
+          <qq-pdf-preview [controls]="false" [pdfUrl]="compile.pdfUrl()" [state]="compile.state()" [stale]="compile.stale()" (locate)="locateInMain($event)" />
         } @else {
           <qq-ink-log [controls]="false" [showWarnings]="prefs.prefs().showWarnings" [state]="compile.state()" [result]="compile.result()" [fatalError]="compile.fatalError()" (jump)="jumpInMain($event)" />
         }
@@ -88,7 +90,7 @@ export class PopoutPage {
       await this.router.navigateByUrl('/404', { replaceUrl: true });
       return;
     }
-    if (this.which() === 'preview') this.collab.connect(id);
+    if (this.which() === 'preview') this.collab.connect(id, undefined, true);
     if (typeof BroadcastChannel === 'undefined') return;
     this.channel?.close();
     this.channel = new BroadcastChannel(channelName(id));
@@ -108,6 +110,12 @@ export class PopoutPage {
       // the main window closes us; if nobody answers (it is gone), open the editor here instead
       setTimeout(() => void this.router.navigate(['/scroll', this.id()]), 600);
     } else void this.router.navigate(['/scroll', this.id()]);
+  }
+
+  /** A double-click on the preview: find the source line here, and have the editor window go to it. */
+  protected async locateInMain(p: PdfPoint): Promise<void> {
+    const hit = await this.compile.locate(this.id(), p.page, p.x, p.y);
+    if (hit) this.jumpInMain({ severity: 'info', file: hit.file, line: hit.line, column: columnIn(this.collab.project.read(hit.file), hit.line, p), message: '' });
   }
 
   protected jumpInMain(d: Diagnostic): void {

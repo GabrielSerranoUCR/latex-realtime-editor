@@ -27,7 +27,7 @@ export function parseMessage(data: unknown): PopoutMessage | null {
     case 'jump': {
       const d = m['diagnostic'] as Partial<Diagnostic> | undefined;
       if (!d || typeof d.message !== 'string') return null;
-      return { type: 'jump', diagnostic: { severity: String(d.severity ?? 'error'), file: typeof d.file === 'string' ? d.file : null, line: typeof d.line === 'number' ? d.line : null, message: d.message } };
+      return { type: 'jump', diagnostic: { severity: String(d.severity ?? 'error'), file: typeof d.file === 'string' ? d.file : null, line: typeof d.line === 'number' ? d.line : null, column: typeof d.column === 'number' ? d.column : null, message: d.message } };
     }
     case 'snapshot': {
       const s = m['snapshot'] as Partial<CompileSnapshot> | undefined;

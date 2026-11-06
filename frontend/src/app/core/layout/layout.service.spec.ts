@@ -31,8 +31,13 @@ describe('PanelLayoutService', () => {
 
   it('clamps sizes to their limits and to the room the editor needs', () => {
     const l = fresh();
-    l.setSize('treeW', 9999);
-    expect(l.sizes().treeW).toBe(480);
+    l.setSize('treeW', 9999); // no workspace measured yet: only the sanity cap applies
+    expect(l.sizes().treeW).toBe(9999);
+    l.space.set({ w: 1600, h: 900 });
+    l.setSize('treeW', 9999); // now it may take what leaves the preview and the editor their smallest
+    expect(l.sizes().treeW).toBe(1600 - 24 - 320 - 12 - (280 + 12));
+    expect(l.sizes().previewW).toBe(280);
+    l.reset();
     l.setSize('logH', 1);
     expect(l.sizes().logH).toBe(84);
     l.space.set({ w: 900, h: 700 });
@@ -64,13 +69,13 @@ describe('PanelLayoutService', () => {
   it('saves the layout for next time and resets it back', () => {
     const l = fresh();
     l.setSize('treeW', 300);
-    l.toggle('log');
+    l.toggle('log'); // the log starts hidden: showing it is what gets saved
     expect(l.save()).toBe(true);
     expect(l.hasSaved()).toBe(true);
 
     const next = fresh();
     expect(next.sizes().treeW).toBe(300);
-    expect(next.visible().log).toBe(false);
+    expect(next.visible().log).toBe(true);
     expect(next.hasSaved()).toBe(true);
 
     next.reset();

@@ -28,6 +28,8 @@ Angular app ──WebSocket (y-sync, binary CRDT updates)──▶ Axum server �
 
 **Compiling**
 - One click (⌘/Ctrl+Enter) or auto-compile; the PDF preview follows the latest build for everyone at the table.
+- **Double-click the PDF preview** to put the caret on the source line, and on the word, that produced that spot (SyncTeX; works from the
+  pop-out preview too). The preview is drawn with pdf.js (zoom, fits the panel height, selectable and copyable text).
 - The Ink Log lists errors and warnings by file and line; click one to jump to it.
 - Compiles run in a bounded worker pool with a timeout (the Tectonic CLI, one process per compile).
 
